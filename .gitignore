@@ -5,7 +5,7 @@
 /dist/
 
 #Config file with local path data
-/src/refractive_index_info/config.yaml
+config.yaml
 
 # Python egg metadata, regenerated from source files by setuptools.
 /*.egg-info

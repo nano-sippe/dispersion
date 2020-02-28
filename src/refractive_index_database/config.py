@@ -19,20 +19,25 @@ def default_config():
       SpectrumType: wavelength
       Unit: nanometer
     """
-    yaml = YAML(typ='safe')
+    yaml = YAML()
     config = yaml.load(yaml_str)
     return config
-"""
+
 def write_config(config):
-    default = default_config()
-"""
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    file_path = os.path.join(dir_path,'config.yaml')
+    with open(file_path,'w') as fp:
+        yaml = YAML()
+        yaml.dump(config,fp)
+
 def read_config():
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    try:
-        with open(os.path.join(dir_path,'config.yaml'),'r') as fp:
-            yaml = YAML(typ='safe')
+    file_path = os.path.join(dir_path,'config.yaml')
+    if os.path.isfile(file_path):
+        with open(file_path,'r') as fp:
+            yaml = YAML()
             config = yaml.load(fp)
-    except FileNotFoundError as e:
+    else:
         config = default_config()
     return config
 

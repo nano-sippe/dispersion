@@ -15,6 +15,33 @@ import pandas as pd
 from refractive_index_database.material_data import MaterialData
 from refractive_index_database.spectrum import Spectrum
 
+def validate_config(config):
+    """
+    validates all values of the of given MaterialDatabase config        
+    """
+    check_type(config['Path'],str)
+    if not os.path.isdir(config['Path']):
+        raise IOError("directory path for database file system is invalid:" +
+                      " <{}>".format(config['Path']))
+    check_type(config['Interactive'],bool)
+    assert "Modules" in config
+    for value in config['Modules'].values():
+        check_type(value,bool)
+    assert "ReferenceSpectrum" in config
+    ref_spec = config['ReferenceSpectrum']
+    check_type(ref_spec['Value'],float)
+    check_type(ref_spec['SpectrumType'],str)
+    check_type(ref_spec['Unit'],str)
+
+def check_type(value,val_type):
+    """
+    checks if value isinstance of val_type, if not raise exception
+    """
+    if not isinstance(value,val_type):
+        raise ValueError("config file data {}".format(value) +
+                         "must be of type {}".format(val_type) +
+                         ", not {}".format(type(value)))
+
 class MaterialDatabase(object):
     """
     class used for administering a set of data files
@@ -43,6 +70,7 @@ class MaterialDatabase(object):
 
 
     def __init__(self, config, rebuild=False):
+        validate_config(config)
         self.make_reference_spectrum(config)
         self.config = config
         self.base_path = config['Path']
@@ -351,20 +379,4 @@ class MaterialDatabase(object):
 
 
 if __name__ == "__main__":
-    """
-    base_path = "/data/numerik/bzfmanle/Simulations/pypmj/database"
-    refSpec = {'Value':632.8,
-               'SpectrumType':'wavelength',
-               'Unit':'nanometer'}
-    modules = {'RefractiveIndexInfo':True,
-               'Filmetrics':True,
-               'UserData':True}
-    config = {'ReferenceSpectrum':refSpec,
-              "Path":base_path,
-              "Modules":modules,
-              "Interactive":False}
-    mdb = MaterialDatabase(config, rebuild=True)
-    mdb.save_to_file()
-    """
-    #allData = mdb.getDatabase()
-    #allData.to_csv(os.path.join('test2.csv',index=False)
+    pass
