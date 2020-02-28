@@ -30,6 +30,6 @@ def get_permittivity(inputs):
     config['Path'] = inputs['path']
     mdb = MaterialDatabase(config=config)
     mat = mdb.get_material(inputs['name'])
-    return mat.getPermittivity(inputs['EMOmega'],
-                               spectrumType='angularFrequency',
+    return mat.get_permittivity(inputs['EMOmega'],
+                               spectrum_type='angularfrequency',
                                unit='1/s')
