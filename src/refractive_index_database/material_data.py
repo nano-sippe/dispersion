@@ -103,19 +103,10 @@ class MaterialData(object):
         self.meta_data['Author'] = ""
         self.meta_data['Alias'] = ""
         self._file_data = None
-        #self.alias = ""
         self.data = {'name': "",
                      'real': None,
                      'imag': None,
                      'complex':None}
-        """
-        self._n = None
-        self._k = None
-        self._nk = None
-        self._epsr = None
-        self._epsi = None
-        self._eps = None
-        """
         self.options = {'InterpOrder':'cubic'}
         self.defaults = {'unit':parsed_args["unit"],
                          'spectrum_type':parsed_args["spectrum_type"]}
@@ -142,7 +133,7 @@ class MaterialData(object):
         inputs = {}
         n_mutually_exclusive = 0
         for arg in args.keys():
-            if args[arg] is not None:
+            if arg in args and args[arg] is not None:
                 if arg in mutually_exclusive:
                     n_mutually_exclusive += 1
             inputs[arg] = args[arg]
@@ -178,7 +169,7 @@ class MaterialData(object):
     def _check_type(args, names, types):
         """
         raises TypeError if the names keys in args dict are not in the
-        set of types
+        set of types. If name is not in args, place a default value of None.
         """
         for arg in names:
             if arg in args and args[arg] is not None:
@@ -190,6 +181,9 @@ class MaterialData(object):
                     raise TypeError("argument " +
                                     "{} must be".format(arg) +
                                     " of types: {}".format(types))
+            else:
+                args[arg] = None
+                
 
     def _complete_partial_data(self):
         """
@@ -390,7 +384,7 @@ class MaterialData(object):
             model_dict['unit'] = self.defaults['unit']
 
         method_ids = {1: 'Sellmeier', 2: 'Sellmeier2',
-                      3: 'Polynomical', 4: 'RefractiveIndexInfo',
+                      3: 'Polynomial', 4: 'RefractiveIndexInfo',
                       5: 'Cauchy', 6: 'Gases',
                       7: 'Herzberger', 8: 'Retro',
                       9: 'Exotic'}

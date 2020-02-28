@@ -40,10 +40,10 @@ class Reader(object):
         self.file_path = file_path
         fname, extension = os.path.splitext(file_path)
         self.extension = extension
-        self.default_file_dict = Reader.create_default_file_dict()
+        self.default_file_dict = self.create_default_file_dict()
 
-    @staticmethod
-    def create_default_file_dict():
+
+    def create_default_file_dict(self):
         file_dict = {'MetaData': {}}
         for mdk in Reader.FILE_META_DATA_KEYS:
             file_dict['MetaData'][mdk] = ""
@@ -143,11 +143,10 @@ class Reader(object):
         '''
         The refractiveindex.info database format
         '''
-        yaml = YAML(typ='safe')
         #yaml_stream = open(self.file_path, 'r', encoding="utf-8")
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(dir_path,'config.yaml'),'r') as fp:
-            yaml = YAML(typ='safe')
+        #dir_path = os.path.dirname(os.path.realpath(__file__))
+        with open(self.file_path, 'r',encoding="utf-8") as fp:
+            yaml = YAML()
             yaml_data = yaml.load(fp)
         file_dict = dict(self.default_file_dict)
         file_dict = self.read_yaml_file_dict(file_dict, yaml_data)

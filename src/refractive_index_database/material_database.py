@@ -5,6 +5,7 @@ refractive index or permittivity data
 from __future__ import print_function
 import os
 import codecs
+import warnings
 #import yaml
 import numpy as np
 try:
@@ -14,6 +15,20 @@ except ModuleNotFoundError as e:
 import pandas as pd
 from refractive_index_database.material_data import MaterialData
 from refractive_index_database.spectrum import Spectrum
+from refractive_index_database.config import get_config
+
+def rebuild_database():
+    valid_ans = False
+    while not valid_ans:
+        ans = input("really rebuild and overwrite material database? (y/n) ")
+        if ans == 'n':
+            valid_ans = True
+            return
+        elif ans == 'y':
+            valid_ans =True        
+
+    mdb = MaterialDatabase(rebuild=True)
+    mdb.save_to_file()
 
 def validate_config(config):
     """
@@ -69,7 +84,9 @@ class MaterialDatabase(object):
                  'K_Reference':[""]}
 
 
-    def __init__(self, config, rebuild=False):
+    def __init__(self, config=None, rebuild=False):
+        if config is None:
+            config = get_config()
         validate_config(config)
         self.make_reference_spectrum(config)
         self.config = config
@@ -206,85 +223,87 @@ class MaterialDatabase(object):
     def read_refractive_index_info_db(self, db_path):
         """read the file structure provided by the refractiveindex.info
         website"""
+        self.rii_loader = {}
+        self.rii_loader['db_path'] = db_path
         with codecs.open(os.path.join(db_path, "library.yml"),
                          'r', encoding='utf8') as stream:
             data = YAML(typ='safe').load(stream)
             dframe = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
-            database_list = []
-            database_list = self._read_ri_info_shelves(data,
-                                                       db_path,
-                                                       database_list)
+            self.rii_loader['database_list'] = []
+            self._iterate_shelves(data)
 
-            """
-            for shelf_data in data:
-                #shelf = shelf_data['SHELF']
-                content = shelf_data['content']
-                for shelf_content in content:
-                    if "DIVIDER" in shelf_content.keys():
-                        #shelf_divider = shelf_content['DIVIDER']
-                        continue
-                    if "BOOK" in shelf_content.keys():
-                        #book = shelf_content['BOOK']
-                        #full_name = shelf_content['name']
-                        for book_content in shelf_content['content']:
-                            if "DIVIDER" in book_content:
-                                continue
-                            #page = book_content['PAGE']
-                            #data_set_name = book_content['name']
-                            #path = book_content['data']
-                            full_file = os.path.join(db_path,
-                                                     'data',
-                                                     book_content['data'])
-                            mat = MaterialData(file_path=full_file,
-                                               spectrum_type='wavelength',
-                                               unit='micrometer')
-                            content_dict = {"Alias":"",
-                                            "Name":shelf_content['BOOK'],
-                                            "FullName":shelf_content['name'],
-                                            "Author":book_content['PAGE'],
-                                            "Path":book_content['data'],
-                                            "Database":"RefractiveIndexInfo"}
-                            content_dict['SpectrumType'] = 'wavelength'
-                            content_dict['Unit'] = 'micrometer'
-                            valid_range = mat.get_maximum_valid_range()
-                            content_dict['SpectrumLowerBound'] = valid_range[0]
-                            content_dict['SpectrumUpperBound'] = valid_range[1]
-                            meta_data = mat.meta_data
-                            content_dict['Reference'] = meta_data['Reference']
-                            content_dict['Comment'] = meta_data['Comment']
-                            try:
-                                ref_spectrum = self.reference_spectrum
-                                ref_index = mat.getNKData(ref_spectrum)
-                            except ValueError:
-                                ref_index = np.nan + 1j* np.nan
-
-
-                            content_dict['N_Reference'] = np.real(ref_index)
-                            content_dict['K_Reference'] = np.imag(ref_index)
-                            database_list.append(content_dict)
-            """
-        dframe = pd.DataFrame(database_list,
+        dframe = pd.DataFrame(self.rii_loader['database_list'],
                               columns=MaterialDatabase.META_DATA.keys())
+        self.rii_loader = None
         return dframe
 
-    def _read_ri_info_shelves(self, data, db_path, database_list):
-        for shelf_data in data:
+    def _iterate_shelves(self, shelves):
+        """
+        shelves is an ordered dict
+        """
+        for shelf in shelves:            
             #shelf = shelf_data['SHELF']
-            content = shelf_data['content']
-            for shelf_content in content:
-                if "DIVIDER" in shelf_content.keys():
-                    #shelf_divider = shelf_content['DIVIDER']
-                    continue
-                if "BOOK" in shelf_content.keys():
-                    shelf = shelf_content
-                    book = shelf_content['content']
-                    database_list = self._read_ri_info_book(db_path,
-                                                            shelf,
-                                                            book,
-                                                            database_list)
-        return database_list
+            self.rii_loader['current_shelf'] = shelf['name']
+            books = shelf['content']            
+            self._iterate_books(books)
 
-    def _read_ri_info_book(self, db_path, shelf, book, database_list):
+
+    def _iterate_books(self,books):
+        for book in books:
+            if "DIVIDER" in book.keys():
+                self.rii_loader['current_divider'] = book['DIVIDER']
+                continue
+            elif "BOOK" in book.keys():
+                self.rii_loader['current_book'] = book['BOOK']
+                self.rii_loader['current_full_name'] = book['name']
+                pages = book['content']
+                self._iterate_pages(pages)
+
+
+    def _iterate_pages(self,pages):
+        for page in pages:
+            if "DIVIDER" in page:
+                continue
+            elif "PAGE" in page:
+                db_path = self.rii_loader['db_path']
+                rel_path = os.path.join('data',page['data'])
+                full_file = os.path.join(db_path,rel_path)
+                try:
+                    mat = MaterialData(file_path=full_file,
+                                   spectrum_type='wavelength',
+                                   unit='micrometer')
+                except Exception as e:
+                    warnings.warn("file {} ".format(full_file) +
+                                  "could not be opened, skipping")
+                    continue
+                fullname = self.rii_loader['current_full_name']
+                content_dict = {"Alias":"",
+                                "Name":self.rii_loader['current_book'],
+                                "FullName":fullname,
+                                "Author":page['PAGE'],
+                                "Path":rel_path,
+                                "Database":"RefractiveIndexInfo"}
+                content_dict['SpectrumType'] = 'wavelength'
+                content_dict['Unit'] = 'micrometer'
+                valid_range = mat.get_maximum_valid_range()
+                content_dict['SpectrumLowerBound'] = valid_range[0]
+                content_dict['SpectrumUpperBound'] = valid_range[1]
+                content_dict['Reference'] = mat.meta_data['Reference']
+                content_dict['Comment'] = mat.meta_data['Comment']
+                try:
+                    ref_spectrum = self.reference_spectrum
+                    ref_index = mat.get_nk_data(ref_spectrum)
+                except ValueError:
+                    ref_index = np.nan + 1j* np.nan
+
+                content_dict['N_Reference'] = np.real(ref_index)
+                content_dict['K_Reference'] = np.imag(ref_index)
+                self.rii_loader['database_list'].append(content_dict)
+
+
+            
+            
+    def _read_ri_info_pages(self, db_path, shelf, book, database_list):
         for book_content in book:
             if "DIVIDER" in book_content:
                 continue
@@ -312,7 +331,7 @@ class MaterialDatabase(object):
             content_dict['Comment'] = mat.meta_data['Comment']
             try:
                 ref_spectrum = self.reference_spectrum
-                ref_index = mat.getNKData(ref_spectrum)
+                ref_index = mat.get_nk_data(ref_spectrum)
             except ValueError:
                 ref_index = np.nan + 1j* np.nan
 
@@ -364,7 +383,7 @@ class MaterialDatabase(object):
             content_dict['SpectrumUpperBound'] = valid_range[1]
             content_dict['Path'] = filename
             try:
-                ref_index = mat.getNKData(self.reference_spectrum)
+                ref_index = mat.get_nk_data(self.reference_spectrum)
             except ValueError:
                 ref_index = float('nan') + 1j* float('nan')
 
@@ -379,4 +398,4 @@ class MaterialDatabase(object):
 
 
 if __name__ == "__main__":
-    pass
+    rebuild_database()

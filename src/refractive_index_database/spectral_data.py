@@ -190,7 +190,7 @@ class Sellmeier2(Model):
         [ones, wavelengths] = self.preprocess(spectrum)
         rhs = self.model_parameters[0]*ones
         wvlsq = np.power(wavelengths, 2)
-        for iterc in range(self.model_parameters[1::2]):
+        for iterc in range(len(self.model_parameters[1::2])):
             cupper = self.model_parameters[iterc*2+1]
             clower = self.model_parameters[iterc*2+2]
             rhs += cupper*wvlsq/(wvlsq-clower)
@@ -214,7 +214,7 @@ class Polynomial(Model):
         [ones, wavelengths] = self.preprocess(spectrum)
         rhs = self.model_parameters[0]*ones
 
-        for iterc in range(self.model_parameters[1::2]):
+        for iterc in range(len(self.model_parameters[1::2])):
             c_multi = self.model_parameters[iterc*2+1]
             c_power = self.model_parameters[iterc*2+2]
             rhs += c_multi*np.power(wavelengths, c_power)
@@ -238,14 +238,14 @@ class RefractiveIndexInfo(Model):
         [ones, wavelengths] = self.preprocess(spectrum)
         rhs = self.model_parameters[0]*ones
         wvlsq = np.power(wavelengths, 2)
-        for iterc in range(self.model_parameters[1:8:4]):
+        for iterc in range(len(self.model_parameters[1:8:4])):
             c_multi_upper = self.model_parameters[iterc*4+1]
             c_power_upper = self.model_parameters[iterc*4+2]
             c_multi_lower = self.model_parameters[iterc*4+3]
             c_power_lower = self.model_parameters[iterc*4+4]
             rhs += (c_multi_upper*np.power(wavelengths, c_power_upper)/
                     (wvlsq-np.power(c_multi_lower, c_power_lower)))
-        for iterc in range(self.model_parameters[9::2]):
+        for iterc in range(len(self.model_parameters[9::2])):
             c_multi = self.model_parameters[iterc*2+9]
             c_power = self.model_parameters[iterc*2+10]
             rhs += c_multi*np.power(wavelengths, c_power)
@@ -270,7 +270,7 @@ class Cauchy(Model):
         """returns the value of the spectral data for the given spectrum"""
         [ones, wavelengths] = self.preprocess(spectrum)
         rhs = self.model_parameters[0]*ones
-        for iterc in range(self.model_parameters[1::2]):
+        for iterc in range(len(self.model_parameters[1::2])):
             c_multi = self.model_parameters[iterc*2+1]
             c_power = self.model_parameters[iterc*2+2]
             rhs += c_multi*np.power(wavelengths, c_power)
@@ -294,7 +294,7 @@ class Gases(Model):
         [ones, wavelengths] = self.preprocess(spectrum)
         rhs = self.model_parameters[0]*ones
         wvlinvsq = np.power(wavelengths, -2)
-        for iterc in range(self.model_parameters[1::2]):
+        for iterc in range(len(self.model_parameters[1::2])):
             cupper = self.model_parameters[iterc*2+1]
             clower = self.model_parameters[iterc*2+2]
             rhs += cupper/(clower-wvlinvsq)
