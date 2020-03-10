@@ -27,7 +27,8 @@ def rebuild_database():
         elif ans == 'y':
             valid_ans =True        
 
-    mdb = MaterialDatabase(rebuild=True)
+    mdb = MaterialDatabase(rebuild='All')
+
     mdb.save_to_file()
 
 def validate_config(config):
@@ -84,50 +85,62 @@ class MaterialDatabase(object):
                  'K_Reference':[""]}
 
 
-    def __init__(self, config=None, rebuild=False):
+    def __init__(self, config=None, rebuild="None"):
         if config is None:
             config = get_config()
         validate_config(config)
         self.make_reference_spectrum(config)
         self.config = config
         self.base_path = config['Path']
-        if rebuild:
-            self.build_database(config['Modules'])
+        if rebuild == 'All':
+            df = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
         else:
             dtypes = MaterialDatabase.META_DATA
-            self.database = pd.read_csv(os.path.join(self.base_path,
-                                                     'database.csv'),
-                                        dtype=dtypes,
-                                        na_values=MaterialDatabase.NA_VALUES,
-                                        keep_default_na=False)
+            df = pd.read_csv(os.path.join(self.base_path,
+                                          'database.csv'),
+                             dtype=dtypes,
+                             na_values=MaterialDatabase.NA_VALUES,
+                             keep_default_na=False)
+            
+        if not rebuild == 'None':
+            df = self.build_database(df,rebuild)            
+        self.database = df
         self.qgrid_widget = None
         if self.config['Interactive']:
             import qgrid
             self.make_qgrid = qgrid.show_grid
 
-    def build_database(self, modules):
+    def build_database(self, df, rebuild):
         """
-        read all modules specified in config and add them to the database
+        read specified modules and return a dataframe combining all modules
         """
-        self.database = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
-        if modules['RefractiveIndexInfo']:
-            refinfo_path = 'RefractiveIndexInfo'
-            print("Building RefractiveIndex.info database")
-            dir_path = os.path.join(self.base_path, refinfo_path)
-            dframe = self.read_refractive_index_info_db(dir_path)
-            self.database = self.database.append(dframe, sort=False)
-        if modules['Filmetrics']:
-            print("Building Filmetrics database")
-            filmmetrics_path = 'Filmetrics'
-            dir_path = os.path.join(self.base_path, filmmetrics_path)
-            dframe = self.read_filmmetrics_db(dir_path)
-            self.database = self.database.append(dframe, sort=False)
-        if modules['UserData']:
-            print("Building UserData database")
-            user_data_path = 'UserData'
-            dir_path = os.path.join(self.base_path, user_data_path)
-            dframe = self.read_user_data_db(dir_path)
-            self.database = self.database.append(dframe, sort=False)
+        config_modules = self.config['Modules']
+        all_modules = {'RefractiveIndexInfo':self.read_ri_info_db,
+                       'Filmetrics':self.read_filmetrics_db,
+                       'UserData':self.read_user_data_db}
+        df_new = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
+        for module,valid in config_modules.items():
+            if valid:
+                print("Building {}".format(module))
+                if rebuild == module or rebuild == 'All':
+                    db_path = module
+                    dir_path = os.path.join(self.base_path, db_path)
+                    read_function = all_modules[module]
+                    dframe = read_function(dir_path)
+                    df_new = df_new.append(dframe, sort=False,
+                                           ignore_index=True)
+                else:
+                    dframe = df[df.Database == module]
+                    df_new = df_new.append(dframe, sort=False,
+                                           ignore_index=True)
+                    
+            else:
+                if rebuild == module:
+                    raise ValueError("Tried to rebuild database" +
+                                     "{}".format(rebuild) +
+                                     ", however this module is disabled" +
+                                     " in the configuration.")
+        return df_new
 
     def view_interactive(self):
         """
@@ -195,6 +208,13 @@ class MaterialDatabase(object):
             raise ValueError("row_id: {}".format(row_id) +
                              " with type {}".format(type(row_id)) +
                              " not understood")
+        if alias in self.database.loc[:,'Alias'].values:
+            print("alias in self.database")
+            if not self.database.at[index,'Alias'] == alias:
+                raise ValueError("Alias {} ".format(alias) +
+                                 "already in use. Failed to " +
+                                 "add to database.")
+        
         self.database.at[index, 'Alias'] = alias
 
     def get_material(self, identifier):
@@ -220,7 +240,7 @@ class MaterialDatabase(object):
                                            unit=unit)
 
 
-    def read_refractive_index_info_db(self, db_path):
+    def read_ri_info_db(self, db_path):
         """read the file structure provided by the refractiveindex.info
         website"""
         self.rii_loader = {}
@@ -342,7 +362,7 @@ class MaterialDatabase(object):
 
 
 
-    def read_filmmetrics_db(self, db_path):
+    def read_filmetrics_db(self, db_path):
         """read the file structure provided my filmetrics.com"""
         return self._read_text_db(db_path, "Filmetrics")
 
@@ -350,9 +370,9 @@ class MaterialDatabase(object):
         """read user data files"""
         return self._read_text_db(db_path, "UserData")
 
-
     def _read_text_db(self, db_path, database_name):
-        """internal function used to load all txt or csv files in a folder"""
+        """internal function used to load all txt, csv or yml
+        files in a folder"""
         onlyfiles = [f for f in os.listdir(db_path)
                      if os.path.isfile(os.path.join(db_path, f))]
 
@@ -360,7 +380,7 @@ class MaterialDatabase(object):
         database_list = []
         for filename in onlyfiles:
             [name, ext] = os.path.splitext(filename)
-            allowed_ext = {'.txt', '.csv'}
+            allowed_ext = {'.txt', '.csv', '.yml'}
             if ext not in allowed_ext:
                 continue
 
