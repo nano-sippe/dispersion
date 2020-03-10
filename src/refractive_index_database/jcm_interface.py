@@ -1,8 +1,10 @@
 from numpy import *
-from refractive_index_database.config import get_config
-from refractive_index_database.material_database import MaterialDatabase
+import sys
+import os
 
 def get_permittivity(inputs):
+    
+    
     if not isinstance(inputs, dict):
         raise ValueError("this function requires a dicionary input")
     required_keys = {'path', 'name', 'EMOmega'}
@@ -18,11 +20,18 @@ def get_permittivity(inputs):
         raise ValueError("input {} must be" +
                          " of types {}".format("EMOmega",
                                                {float, complex}))
-
+    
+    dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    print("adding path :<{}> to PATH".format(dir_path))
+    sys.path.insert(0, dir_path)    
+    from refractive_index_database.config import get_config
+    from refractive_index_database.material_database import MaterialDatabase
+        
     config = get_config()
     config['Path'] = inputs['path']
     mdb = MaterialDatabase(config=config)
     mat = mdb.get_material(inputs['name'])
-    return eye(3,3)*mat.get_permittivity(inputs['EMOmega'],
+    complex_eps = mat.get_permittivity(inputs['EMOmega'],
                                spectrum_type='angularfrequency',
                                unit='1/s')
+    return (real(complex_eps),imag(complex_eps))
