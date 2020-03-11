@@ -1,12 +1,19 @@
 import pytest
 import numpy as np
-from refractive_index_database.spectrum import Spectrum
+from refractive_index_database.spectrum import Spectrum, safe_inverse
 
 def test_scalar_init():
     spectrum = Spectrum(1.3)
 
 def test_list_init():
     spectrum = Spectrum([0.5, 1.0])
+
+def test_safe_inverse():
+    values = np.array([0.0, 2.0, np.inf])
+    inverse = safe_inverse(values)
+    assert inverse[0] == np.inf
+    assert inverse[1] == 0.5
+    assert inverse[2] == 0.0
 
 def test_standardise():
     spectrum = Spectrum([0.5, 1.0])
