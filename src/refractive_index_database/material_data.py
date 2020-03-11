@@ -11,7 +11,7 @@ import os
 #import sys
 import codecs
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from refractive_index_database.spectrum import Spectrum
 from refractive_index_database.spectral_data import Constant, Interpolation
 import refractive_index_database.spectral_data as spectral_data
@@ -507,7 +507,7 @@ class MaterialData(object):
         """print material comment"""
         print(self.utf8_to_ascii(self.meta_data['Comment']))
 
-
+    
     def plot_nk_data(self, **kwargs):
         """plots the real and imaginary part of the refractive index"""
         self._plot_data('nk', **kwargs)
@@ -518,7 +518,8 @@ class MaterialData(object):
 
     def _plot_data(self, data_label, **kwargs):
         """internal function used for plotting spectral data"""
-
+        raise NotImplementedError("plotting disabled to remove" +
+                                  "matplotlib dependence")
         plot_data = self._prepare_plot_data(**kwargs)
 
         if data_label == 'nk':
