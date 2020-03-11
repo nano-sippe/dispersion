@@ -10,19 +10,40 @@ import scipy.constants as constants
 
 def safe_inverse(values):
     '''
+    returns the inverse of a scalar or array while
+    converting values of 0 to inf and values of inf to 0
+    '''
+    if isinstance(values,np.ndarray):
+        inverse = safe_inverse_array(values)
+    else:
+        inverse = safe_inverse_scalar(values)
+    return inverse
+
+def safe_inverse_array(values):
+    '''
     takes the inverse of an array while converting values of 0 to inf
     and values of inf to 0
     '''
     inverse = np.array(values)
-    valid_values = ma.masked_values(ma.masked_values(values, 0), np.inf)
-    masked_inverse = 1/valid_values
-    invalid_inverse_values = masked_inverse[~ma.getmaskarray(valid_values)]
-    inverse[~ma.getmaskarray(valid_values)] = invalid_inverse_values
-    zero_values = ma.masked_greater(values, 0.0)
-    inverse[~ma.getmaskarray(zero_values)] = np.inf
-    inf_values = ma.masked_less(values, np.inf)
-    inverse[~ma.getmaskarray(inf_values)] = 0.0
+    zero_ind = np.isclose(values,0.0)
+    inf_ind = np.isclose(values,np.inf)    
+    safe_inv_ind = ~ (zero_ind | inf_ind)
+    inverse[zero_ind] = np.inf
+    inverse[inf_ind] = 0.0
+    inverse[safe_inv_ind] = 1.0/values[safe_inv_ind]
     return inverse
+
+def safe_inverse_scalar(value):
+    '''
+    takes the inverse of a scalar while converting values of 0 to inf
+    and values of inf to 0
+    '''
+    if value == 0.0:
+        return np.inf
+    elif value == np.inf:
+        return 0.0
+    else:
+        return 1.0/value
 
 def frequency_to_standard(unit, values):
     """converts frequency values to standardised representation"""
