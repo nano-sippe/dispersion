@@ -12,3 +12,6 @@ config.yaml
 
 # personal notebooks
 /notebooks/personal
+
+# data files
+/data
