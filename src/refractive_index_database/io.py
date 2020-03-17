@@ -73,8 +73,13 @@ class Reader(object):
                              ", supported extensions are (.yml|.csv|.txt)")
 
     def _read_text_data(self):
+        fname,ext = os.path.splitext(self.file_path)
         try:
-            data = np.loadtxt(self.file_path, encoding='utf-8')
+            if ext == '.txt':
+                data = np.loadtxt(self.file_path, encoding='utf-8')
+            elif ext == '.csv':
+                data = np.loadtxt(self.file_path, encoding='utf-8',
+                                  delimiter=',')
         except IOError as e:
             raise e
         data_dict = self.create_default_data_dict()
