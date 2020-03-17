@@ -13,6 +13,10 @@ try:
 except ModuleNotFoundError as e:
     from ruamel_yaml import YAML
 import pandas as pd
+ver = pd.__version__
+split = ver.split(".")
+PANDAS_MINOR_VERSION = int(split[1])
+
 from refractive_index_database.material_data import MaterialData
 from refractive_index_database.spectrum import Spectrum
 from refractive_index_database.config import get_config
@@ -127,13 +131,19 @@ class MaterialDatabase(object):
                     dir_path = os.path.join(self.base_path, db_path)
                     read_function = all_modules[module]
                     dframe = read_function(dir_path)
-                    df_new = df_new.append(dframe, sort=False,
-                                           ignore_index=True)
+                    if PANDAS_MINOR_VERSION > 22:
+                        df_new = df_new.append(dframe, sort=False,
+                                               ignore_index=True)
+                    else:
+                       df_new = df_new.append(dframe,ignore_index=True)
                 else:
                     dframe = df[df.Database == module]
-                    df_new = df_new.append(dframe, sort=False,
-                                           ignore_index=True)
-                    
+                    if PANDAS_MINOR_VERSION > 22:
+                        df_new = df_new.append(dframe, sort=False,
+                                               ignore_index=True)
+                    else:
+                       df_new = df_new.append(dframe,ignore_index=True)
+
             else:
                 if rebuild == module:
                     raise ValueError("Tried to rebuild database" +
@@ -301,7 +311,7 @@ class MaterialDatabase(object):
                                 "Name":self.rii_loader['current_book'],
                                 "FullName":fullname,
                                 "Author":page['PAGE'],
-                                "Path":rel_path,
+                                "Path":os.path.normpath(rel_path),
                                 "Database":"RefractiveIndexInfo"}
                 content_dict['SpectrumType'] = 'wavelength'
                 content_dict['Unit'] = 'micrometer'
@@ -401,7 +411,7 @@ class MaterialDatabase(object):
             valid_range = mat.get_maximum_valid_range()
             content_dict['SpectrumLowerBound'] = valid_range[0]
             content_dict['SpectrumUpperBound'] = valid_range[1]
-            content_dict['Path'] = filename
+            content_dict['Path'] = os.path.normpath(filename)
             try:
                 ref_index = mat.get_nk_data(self.reference_spectrum)
             except ValueError:
