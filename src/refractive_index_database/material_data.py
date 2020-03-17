@@ -150,6 +150,10 @@ class MaterialData(object):
         str_args = {'file_path', 'spectrum_type', 'unit'}
         str_types = {str}
         self._check_type(inputs, str_args, str_types)
+        if inputs['spectrum_type'] is None :
+            inputs['spectrum_type'] = 'wavelength'
+        if inputs['unit'] is None:
+            inputs['unit'] = 'nanometer'
         # pylint: disable=no-member
         # bug in pylint does not recognise numpy data types
         float_args = {"fixed_n", "fixed_eps_r"}
@@ -312,9 +316,11 @@ class MaterialData(object):
                 raise ValueError("data type {} not supported".format(data_type))
 
             if data_type == 'tabulated':
-                if meta_data['SpectrumType']:
+                if (meta_data['SpectrumType'] and \
+                    meta_data['SpectrumType'] is not None):
                     self.defaults['spectrum_type'] = meta_data['SpectrumType']
-                if meta_data['Unit']:
+                if (meta_data['Unit'] and \
+                    meta_data['Unit'] is not None):
                     self.defaults['unit'] = meta_data['Unit']
                 sp_dat_fr_tb = self._spec_data_from_table
                 if identifier == 'nk':
