@@ -199,6 +199,12 @@ class MaterialData(object):
         if self.data['imag'] is None:
             self.data['imag'] = Constant(0.0)
 
+    def remove_absorption(self):
+        """
+        sets loss (k or epsi) to constant zero value
+        """
+        self.data['imag'] = Constant(0.0)
+        
 
     def _process_fixed_value(self, input_dict):
         '''
@@ -332,7 +338,7 @@ class MaterialData(object):
                     self.data['real'] = sp_dat_fr_tb(processed)
                 elif identifier == 'k':
                     self.data['name'] = 'nk'
-                    self.data['complex'] = sp_dat_fr_tb(processed)
+                    self.data['imag'] = sp_dat_fr_tb(processed)
 
 
 

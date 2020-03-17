@@ -230,7 +230,11 @@ class MaterialDatabase(object):
     def get_material(self, identifier):
         """get a material from the database using its alias"""
         if isinstance(identifier, str):
-            row = self.database.loc[self.database.Alias == identifier, :]            
+            row = self.database.loc[self.database.Alias == identifier, :]
+            if row.size == 0:
+                raise ValueError("identifier {} does not ".format(identifier) +
+                                 "name a valid alias in the " +
+                                 "database")
         else:
             raise ValueError("identifier must be of type str")
         file_path = os.path.join(self.base_path,
