@@ -5,7 +5,6 @@ the physical quantity (e.g. wavelength, energy, etc.) and a unit
 for specifiying the SI unit of the spectrum (e.g. meter, electronVolt)
 """
 import numpy as np
-import numpy.ma as ma
 import scipy.constants as constants
 
 def safe_inverse(values):
@@ -26,7 +25,7 @@ def safe_inverse_array(values):
     '''
     inverse = np.array(values)
     zero_ind = np.isclose(values,0.0)
-    inf_ind = np.isclose(values,np.inf)    
+    inf_ind = np.isclose(values,np.inf)
     safe_inv_ind = ~ (zero_ind | inf_ind)
     inverse[zero_ind] = np.inf
     inverse[inf_ind] = 0.0
@@ -179,7 +178,7 @@ class Spectrum(object):
         if not ( isinstance(values, np.ndarray) or
                  isinstance(values, float)):
             raise ValueError("values must be array like or float")
-                 
+
         self.values = values
         self.standard_rep = None  # values in standardised representation
         self.standardise_values(values)
