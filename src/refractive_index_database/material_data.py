@@ -13,7 +13,8 @@ import codecs
 import numpy as np
 #import matplotlib.pyplot as plt
 from refractive_index_database.spectrum import Spectrum
-from refractive_index_database.spectral_data import Constant, Interpolation
+from refractive_index_database.spectral_data import Constant, Interpolation, \
+                                                    Extrapolation
 import refractive_index_database.spectral_data as spectral_data
 from refractive_index_database.io import Reader
 
@@ -187,7 +188,7 @@ class MaterialData(object):
                                     " of types: {}".format(types))
             else:
                 args[arg] = None
-                
+
 
     def _complete_partial_data(self):
         """
@@ -204,7 +205,19 @@ class MaterialData(object):
         sets loss (k or epsi) to constant zero value
         """
         self.data['imag'] = Constant(0.0)
-        
+
+    def extrapolate(self,new_range,spline_order=2):
+        if self.data['complex'] is None:
+            if not isinstance(self.data['real'],Constant):
+                self.data['real'] = Extrapolation(self.data['real'],new_range,
+                                                  spline_order=spline_order)
+            if not isinstance(self.data['imag'],Constant):
+                self.data['imag'] = Extrapolation(self.data['imag'],new_range,
+                                                  spline_order=spline_order)
+        else:
+            raise NotImplementedError("extrapolation not implemented " +
+                                      "for materials with real and imaginary "+
+                                      "parts not independent from each other")
 
     def _process_fixed_value(self, input_dict):
         '''
@@ -519,21 +532,28 @@ class MaterialData(object):
         """print material comment"""
         print(self.utf8_to_ascii(self.meta_data['Comment']))
 
-    
+
     def plot_nk_data(self, **kwargs):
         """plots the real and imaginary part of the refractive index"""
+        raise NotImplementedError("plotting disabled to remove" +
+                                  "matplotlib dependence")
         self._plot_data('nk', **kwargs)
 
     def plot_permittivity(self, **kwargs):
         """plots the real and imaginary part of the permittivity"""
+        raise NotImplementedError("plotting disabled to remove" +
+                                  "matplotlib dependence")
         self._plot_data('permittivity', **kwargs)
 
     def _plot_data(self, data_label, **kwargs):
         """internal function used for plotting spectral data"""
-        raise NotImplementedError("plotting disabled to remove" +
-                                  "matplotlib dependence")
-        plot_data = self._prepare_plot_data(**kwargs)
+        import matplotlib.pyplot as plt
 
+        plot_data = self._prepare_plot_data(**kwargs)
+        if 'axes' not in kwargs:
+            plot_data['axes'] = plt.axes()
+        else:
+            plot_data['axes'] = kwargs['axes']
         if data_label == 'nk':
             data = self.get_nk_data(plot_data['spectrum'])
             labels = ['n', 'k']
@@ -563,18 +583,22 @@ class MaterialData(object):
     def _prepare_plot_data(self, **kwargs):
         """internal function to prepare data for plotting"""
         plot_data = {}
-        if 'axes' not in kwargs:
-            kwargs['axes'] = plt.axes()
         if 'spectrum_type' not in kwargs:
-            kwargs['spectrum_type'] = self.defaults['spectrum_type']
+            plot_data['spectrum_type'] = self.defaults['spectrum_type']
+        else:
+            plot_data['spectrum_type'] = kwargs['spectrum_type']
         if 'unit' not in kwargs:
-            kwargs['unit'] = self.defaults['unit']
+            plot_data['unit'] = self.defaults['unit']
+        else:
+            plot_data['unit'] = kwargs['unit']
         if 'values' not in kwargs:
             spectrum = self.get_sample_spectrum()
             values = spectrum.convert_to(plot_data['spectrum_type'],
                                          plot_data['unit'])
 
+
         else:
+            values = kwargs['values']
             if isinstance(values, (list, tuple)):
                 values = np.array(values)
         spectrum = Spectrum(values,

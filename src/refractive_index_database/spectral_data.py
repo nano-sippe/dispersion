@@ -18,7 +18,7 @@ Model has the following subclasses:
 """
 
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, splrep, splev
 from refractive_index_database.spectrum import Spectrum
 
 
@@ -43,7 +43,7 @@ class SpectralData(object):
         spaced set of values"""
         lower_bound = np.min(self.valid_range.values)
         upper_bound = np.max(self.valid_range.values)
-        suggest = np.geomspace(np.log(lower_bound), upper_bound, num=1000)
+        suggest = np.geomspace(lower_bound, upper_bound, num=1000)
         return Spectrum(suggest,
                         spectrum_type=self.spectrum_type,
                         unit=self.unit)
@@ -71,6 +71,43 @@ class Constant(SpectralData):
             return self.constant * np.ones(len(spectrum.values))
         return self.constant
 
+class Extrapolation(SpectralData):
+    """
+    for extending spectral data outside of the valid range.
+    Use with caution
+    """
+    def __init__(self, spectral_data, extended_range,
+                 spectrum_type=None,
+                 unit=None, spline_order=2):
+        self.base_spectral_data = spectral_data
+        self.spline_order = spline_order
+        min_range = np.min(extended_range)
+        max_range = np.max(extended_range)
+        if spectrum_type is None:
+            spectrum_type = self.base_spectral_data.spectrum_type
+        if unit is None:
+            unit = self.base_spectral_data.unit
+        super(Extrapolation, self).__init__((min_range, max_range),
+                                            spectrum_type=spectrum_type,
+                                            unit=unit)
+        self.extrapolate_data()
+
+    def extrapolate_data(self):
+        """makes a spline base on the base data for future lookup"""
+        spectrum = self.base_spectral_data.suggest_spectrum()
+        evaluation = self.base_spectral_data.evaluate(spectrum)
+        self.extrapolation = splrep(spectrum.values, evaluation,
+                                    k=self.spline_order)
+
+    def evaluate(self, spectrum):
+        """returns the value of the spectral data for the fiven spectrum"""
+        try:
+            self.base_spectral_data.valid_range.contains(spectrum)
+            return self.base_spectral_data.evaluate(spectrum)
+        except ValueError as e:
+            values = spectrum.convert_to(self.spectrum_type, self.unit)
+            return splev(values,self.extrapolation)
+
 
 class Interpolation(SpectralData):
     """for spectral data values that are from tabulated data"""
@@ -93,6 +130,7 @@ class Interpolation(SpectralData):
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the fiven spectrum"""
+
         self.valid_range.contains(spectrum)
         values = spectrum.convert_to(self.spectrum_type, self.unit)
         return self.interpolation(values)
