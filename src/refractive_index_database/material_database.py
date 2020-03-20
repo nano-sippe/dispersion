@@ -29,7 +29,7 @@ def rebuild_database():
             valid_ans = True
             return
         elif ans == 'y':
-            valid_ans =True        
+            valid_ans =True
 
     mdb = MaterialDatabase(rebuild='All')
 
@@ -37,7 +37,7 @@ def rebuild_database():
 
 def validate_config(config):
     """
-    validates all values of the of given MaterialDatabase config        
+    validates all values of the of given MaterialDatabase config
     """
     check_type(config['Path'],str)
     if not os.path.isdir(config['Path']):
@@ -105,9 +105,9 @@ class MaterialDatabase(object):
                              dtype=dtypes,
                              na_values=MaterialDatabase.NA_VALUES,
                              keep_default_na=False)
-            
+
         if not rebuild == 'None':
-            df = self.build_database(df,rebuild)            
+            df = self.build_database(df,rebuild)
         self.database = df
         self.qgrid_widget = None
         if self.config['Interactive']:
@@ -224,24 +224,30 @@ class MaterialDatabase(object):
                 raise ValueError("Alias {} ".format(alias) +
                                  "already in use. Failed to " +
                                  "add to database.")
-        
+
         self.database.at[index, 'Alias'] = alias
 
     def get_material(self, identifier):
         """get a material from the database using its alias"""
         if isinstance(identifier, str):
-            row = self.database.loc[self.database.Alias == identifier, :]
-            if row.size == 0:
+            bool_array = self.database.Alias.values == identifier
+            bool_list = bool_array.tolist()
+            row_index = self.database.index[bool_list]
+            if row_index.size == 0:
                 raise ValueError("identifier {} does not ".format(identifier) +
                                  "name a valid alias in the " +
                                  "database")
+            row = self.database.iloc[row_index[0],:]
+
+        elif isinstance(identifier, int):
+            row = self.database.iloc[identifier, :]
         else:
-            raise ValueError("identifier must be of type str")
+            raise ValueError("identifier must be of type str")        
         file_path = os.path.join(self.base_path,
-                                 row.Database.values[0], row.Path.values[0])
+                                 row.Database, row.Path)
         mat = MaterialData(file_path=file_path,
-                           spectrum_type=row.SpectrumType.values[0],
-                           unit=row.Unit.values[0])
+                           spectrum_type=row.SpectrumType,
+                           unit=row.Unit)
         return mat
 
     def make_reference_spectrum(self, config):
@@ -275,10 +281,10 @@ class MaterialDatabase(object):
         """
         shelves is an ordered dict
         """
-        for shelf in shelves:            
+        for shelf in shelves:
             #shelf = shelf_data['SHELF']
             self.rii_loader['current_shelf'] = shelf['name']
-            books = shelf['content']            
+            books = shelf['content']
             self._iterate_books(books)
 
 
@@ -335,8 +341,8 @@ class MaterialDatabase(object):
                 self.rii_loader['database_list'].append(content_dict)
 
 
-            
-            
+
+
     def _read_ri_info_pages(self, db_path, shelf, book, database_list):
         for book_content in book:
             if "DIVIDER" in book_content:
