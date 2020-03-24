@@ -283,7 +283,7 @@ class Spectrum(object):
         converted_values = convert_methods[spectrum_type](unit, values)
         return converted_values
 
-    def convert_to(self, spectrum_type, unit):
+    def convert_to(self, spectrum_type, unit, in_place=False):
         """
         converts units from wavelength/meter representation to given type/unit
         """
@@ -301,4 +301,8 @@ class Spectrum(object):
                            'wavelength': to_wavelength}
 
         converted_values = convert_methods[spectrum_type](unit, values)
-        return converted_values
+        if in_place:
+            self.values = converted_values
+            return None
+        else:
+            return converted_values
