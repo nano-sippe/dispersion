@@ -218,10 +218,12 @@ class MaterialData(object):
         """
 
         if self.data['complex'] is None:
-            self.data['real'] = Extrapolation(self.data['real'],new_spectrum,
-                                              spline_order=spline_order)
-            self.data['imag'] = Extrapolation(self.data['imag'],new_spectrum,
-                                              spline_order=spline_order)
+            for data_name in ['real','imag']:
+                if isinstance(self.data[data_name],Constant):
+                    continue
+                self.data[data_name] = Extrapolation(self.data[data_name],
+                                                     new_spectrum,
+                                                     spline_order=spline_order)
         else:
             raise NotImplementedError("extrapolation not implemented " +
                                       "for materials with real and imaginary "+
