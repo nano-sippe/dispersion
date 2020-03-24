@@ -206,14 +206,22 @@ class MaterialData(object):
         """
         self.data['imag'] = Constant(0.0)
 
-    def extrapolate(self,new_range,spline_order=2):
+    def extrapolate(self,new_spectrum,spline_order=2):
+        """
+        extrapolates the material data for cover the range defined by the
+        spectrum new_spectrum. if new_spectrum has only one element, the data
+        will be extrapolated from the relevant end of its valid range up to the
+        value given by new_spectrum. spline_order defines the order of the
+        spline used for extrapolation. The results of the extrapolation depend
+        heavily on the order chosen, so please check the end result to make
+        sure it make physical sense.
+        """
+
         if self.data['complex'] is None:
-            if not isinstance(self.data['real'],Constant):
-                self.data['real'] = Extrapolation(self.data['real'],new_range,
-                                                  spline_order=spline_order)
-            if not isinstance(self.data['imag'],Constant):
-                self.data['imag'] = Extrapolation(self.data['imag'],new_range,
-                                                  spline_order=spline_order)
+            self.data['real'] = Extrapolation(self.data['real'],new_spectrum,
+                                              spline_order=spline_order)
+            self.data['imag'] = Extrapolation(self.data['imag'],new_spectrum,
+                                              spline_order=spline_order)
         else:
             raise NotImplementedError("extrapolation not implemented " +
                                       "for materials with real and imaginary "+

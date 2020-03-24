@@ -76,21 +76,67 @@ class Extrapolation(SpectralData):
     for extending spectral data outside of the valid range.
     Use with caution
     """
-    def __init__(self, spectral_data, extended_range,
-                 spectrum_type=None,
-                 unit=None, spline_order=2):
+    def __init__(self, spectral_data, extended_spectrum,
+                 spline_order=2):
         self.base_spectral_data = spectral_data
         self.spline_order = spline_order
-        min_range = np.min(extended_range)
-        max_range = np.max(extended_range)
-        if spectrum_type is None:
-            spectrum_type = self.base_spectral_data.spectrum_type
-        if unit is None:
-            unit = self.base_spectral_data.unit
+        extrap_spectrum = self.get_extrap_spectrum(extended_spectrum)
+        print(extrap_spectrum.values)
+        min_range = np.min(extrap_spectrum.values)
+        max_range = np.max(extrap_spectrum.values)
+        spectrum_type = self.base_spectral_data.spectrum_type
+        unit = self.base_spectral_data.unit
         super(Extrapolation, self).__init__((min_range, max_range),
                                             spectrum_type=spectrum_type,
                                             unit=unit)
         self.extrapolate_data()
+
+    def get_extrap_spectrum(self,extended_spectrum):
+        """
+        takes a Spectrum object with one or two values possibly lying outside
+        the base spectral range. Raises an error if the values do not lie
+        outside the base spectral range. returns a new length two spectrum
+        that gives the lower and upper bound for an extrapolation
+        """
+        base_spectrum = self.base_spectral_data.valid_range
+        extended_spectrum.convert_to(spectrum_type= base_spectrum.spectrum_type,
+                                     unit= base_spectrum.unit,
+                                     in_place= True)
+        new_range = np.array(base_spectrum.values)
+        if isinstance(extended_spectrum.values, (list, tuple, np.ndarray)):
+            # extrapolation both upper and lower
+            extrap_values = extended_spectrum.values
+            if extrap_values.size > 2:
+                raise ValueError("extrapolation spectrum may contain at most" +
+                                 "2 value not {}".format(extrap.values.size))
+            for extrap_val in extrap_values:
+                new_range = self.validate_extrap_val(extrap_val,new_range)
+        else:
+            # upper or lower
+            extrap_val = extended_spectrum.values
+            new_range = self.validate_extrap_val(extrap_val,new_range)
+
+        return Spectrum(new_range,
+                        spectrum_type= base_spectrum.spectrum_type,
+                        unit= base_spectrum.unit)
+
+    def validate_extrap_val(self,extrap_val,base_range):
+        """
+        checks if extrap_val lies outside base_range and replaces the relevant
+        value in base_range with extrap_val.
+        """
+        if extrap_val < base_range[0]:
+            base_range[0] = extrap_val
+        elif extrap_val > base_range[1]:
+            base_range[1] = extrap_val
+        else:
+            raise ValueError("extrapolation value of " +
+                             "{} ".format(extrap_val) +
+                             "lies inside the defined range " +
+                             "{}".format(base_range) +
+                             " therefore extrapolation is not necessary")
+        return base_range
+
 
     def extrapolate_data(self):
         """makes a spline base on the base data for future lookup"""
@@ -103,10 +149,12 @@ class Extrapolation(SpectralData):
         """returns the value of the spectral data for the fiven spectrum"""
         try:
             self.base_spectral_data.valid_range.contains(spectrum)
+            print("value in base spectrum")
             return self.base_spectral_data.evaluate(spectrum)
         except ValueError as e:
-            values = spectrum.convert_to(self.spectrum_type, self.unit)
-            return splev(values,self.extrapolation)
+            spectrum.convert_to(self.spectrum_type, self.unit, in_place=True)
+            self.valid_range.contains(spectrum)
+            return splev(spectrum.values,self.extrapolation)
 
 
 class Interpolation(SpectralData):
