@@ -81,7 +81,6 @@ class Extrapolation(SpectralData):
         self.base_spectral_data = spectral_data
         self.spline_order = spline_order
         extrap_spectrum = self.get_extrap_spectrum(extended_spectrum)
-        print(extrap_spectrum.values)
         min_range = np.min(extrap_spectrum.values)
         max_range = np.max(extrap_spectrum.values)
         spectrum_type = self.base_spectral_data.spectrum_type
@@ -149,7 +148,6 @@ class Extrapolation(SpectralData):
         """returns the value of the spectral data for the fiven spectrum"""
         try:
             self.base_spectral_data.valid_range.contains(spectrum)
-            print("value in base spectrum")
             return self.base_spectral_data.evaluate(spectrum)
         except ValueError as e:
             spectrum.convert_to(self.spectrum_type, self.unit, in_place=True)
