@@ -47,7 +47,7 @@ def safe_inverse_scalar(value):
 def frequency_to_standard(unit, values):
     """converts frequency values to standardised representation"""
     if not unit == 'hz':
-        raise NotImplementedError("support for frequency units other" +
+        raise NotImplementedError("support for frequency units other " +
                                   "than Hz not implemented")
     inverse = safe_inverse(values)
     converted_values = constants.c*inverse
@@ -57,7 +57,7 @@ def frequency_to_standard(unit, values):
 def energy_to_standard(unit, values):
     """converts energy values to standardised representation"""
     if not unit == 'ev':
-        raise NotImplementedError("support for energy units other" +
+        raise NotImplementedError("support for energy units other " +
                                   "than eV not implemented")
     inverse = safe_inverse(values)
     converted_values = (constants.h*constants.c/(constants.e))*inverse
@@ -67,9 +67,9 @@ def energy_to_standard(unit, values):
 def ang_freq_to_standard(unit, values):
     """converts angular frequency values to standardised representation"""
     if not unit == '1/s':
-        raise NotImplementedError("support for angular frequency" +
-                                  "units other than 1/s" +
-                                  " not implemented")
+        raise NotImplementedError("support for angular frequency " +
+                                  "units other than 1/s " +
+                                  "not implemented")
     inverse = safe_inverse(values)
     converted_values = 2*np.pi*constants.c*inverse
     return converted_values
@@ -78,7 +78,7 @@ def ang_freq_to_standard(unit, values):
 def wavenumber_to_standard(unit, values):
     """converts wavenumber values to standardised representation"""
     if not unit == '1/cm':
-        raise NotImplementedError("support for wavenumber units" +
+        raise NotImplementedError("support for wavenumber units " +
                                   "other than 1/cm not implemented")
     inverse = safe_inverse(values)
     converted_values = 2*np.pi*inverse*1e-2
@@ -108,15 +108,15 @@ def to_wavelength(unit, values):
 def to_frequency(unit, values):
     """converts values from standard to frequency representation"""
     if not unit == 'hz':
-        raise NotImplementedError("support for frequency units" +
-                                  " other than Hz not implemented")
+        raise NotImplementedError("support for frequency units " +
+                                  "other than Hz not implemented")
     inverse = safe_inverse(values)
     return constants.c * inverse
 
 def to_energy(unit, values):
     """converts values from standard to energy representation"""
     if not unit == 'ev':
-        raise NotImplementedError("support for energy units" +
+        raise NotImplementedError("support for energy units " +
                                   " other than eV not implemented")
     inverse = safe_inverse(values)
     return (constants.h*constants.c/(constants.e))*inverse
@@ -124,8 +124,8 @@ def to_energy(unit, values):
 def to_ang_freq(unit, values):
     """converts values from standard to angular frequency representation"""
     if not unit == '1/s':
-        raise NotImplementedError("support for angular frequency units" +
-                                  " other than 1/s not implemented")
+        raise NotImplementedError("support for angular frequency units " +
+                                  "other than 1/s not implemented")
     inverse = safe_inverse(values)
     return 2*np.pi*constants.c*inverse
 
@@ -169,9 +169,9 @@ class Spectrum(object):
         self.spectrum_type = spectrum_type.lower()
         if self.spectrum_type not in Spectrum.SPECTRUM_TYPES:
             spectral_types = list(Spectrum.SPECTRUM_TYPES.keys())
-            raise ValueError("spectrum type [{}]".format(spectrum_type) +
-                             "not valid, valid types are" +
-                             " {}".format(spectral_types))
+            raise ValueError("spectrum type [{}] ".format(spectrum_type) +
+                             "not valid, valid types are " +
+                             "{}".format(spectral_types))
         self.unit = self.standardise_unit(self.spectrum_type, unit.lower())
         if isinstance(values, (list, tuple)):
             values = np.array(values)
@@ -197,8 +197,8 @@ class Spectrum(object):
         if valid is False:
             s_types = Spectrum.SPECTRUM_TYPES
             raise ValueError("unit [{}] invalid ".format(unit) +
-                             "valid units for type {}".format(spectrum_type) +
-                             " are {}".format(s_types[spectrum_type]))
+                             "valid units for type {} ".format(spectrum_type) +
+                             "are {}".format(s_types[spectrum_type]))
         return unit_type
 
     def get_type_unit_string(self):
@@ -224,10 +224,10 @@ class Spectrum(object):
         if out_of_range is not None:
             dsu = self.display_string(self.unit)  # display string unit
             raise ValueError("evaluation requested for " +
-                             "{} {} {},".format(self.spectrum_type,
-                                                out_of_range,
-                                                dsu) +
-                             " but valid range is {} {} < {} < {} {}".format(
+                             "{} {} {}, ".format(self.spectrum_type,
+                                                 out_of_range,
+                                                 dsu) +
+                             "but valid range is {} {} < {} < {} {}".format(
                                  self_min, dsu, self.spectrum_type,
                                  self_max, dsu))
 
