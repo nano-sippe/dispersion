@@ -44,7 +44,7 @@ def fix_table(tabulated_data):
     return np.array(new_rows).reshape(-1, n_cols)
 
 
-def process_tabulated_data(table):
+def _str_table_to_numeric(table):
     '''
     takes tabulated data in string form
     and converts to a numpy array
@@ -71,6 +71,11 @@ def process_tabulated_data(table):
         numeric_table = fix_table(numeric_table)
     return numeric_table
 
+def _check_table_shape(table,ncols,name):
+    if (not len(table.shape) ==2 or
+        not table.shape[1] == ncols):
+        raise ValueError("tabulated {} data ".format(name) +
+                         "must have shape Nx{}".format(ncols))
 
 class MaterialData(object):
     '''
@@ -119,6 +124,10 @@ class MaterialData(object):
             self._process_file_data(file_data)
         elif parsed_args['model_kw'] is not None:
             self._process_model_dict(parsed_args['model_kw'])
+        elif parsed_args['tabulated_nk'] is not None:
+            self._process_table(parsed_args['tabulated_nk'], 'nk')
+        elif parsed_args['tabulated_n'] is not None:
+            self._process_table(parsed_args['tabulated_n'], 'n')
         else:
             self._process_fixed_value(parsed_args)
 
@@ -130,6 +139,7 @@ class MaterialData(object):
         """
         mutually_exclusive = {"file_path", "fixed_n", "fixed_nk",
                               "fixed_eps_r", "fixed_eps",
+                              "tabulated_nk","tabulated_n",
                               "model_kw"}
         inputs = {}
         n_mutually_exclusive = 0
@@ -168,6 +178,15 @@ class MaterialData(object):
         dict_args = {'model_kw'}
         dict_types = {dict}
         self._check_type(inputs, dict_args, dict_types)
+
+        array_args = {'tabulated_nk','tabulated_n'}
+        array_types = {np.ndarray}
+        self._check_type(inputs, array_args, array_types)
+        if inputs['tabulated_nk'] is not None:
+            _check_table_shape(inputs['tabulated_nk'],3,'nk')
+        if inputs['tabulated_n'] is not None:
+            _check_table_shape(inputs['tabulated_n'],2,'n')
+
         return inputs
 
     @staticmethod
@@ -334,34 +353,43 @@ class MaterialData(object):
         for dataset in datasets:
             data_type, identifier = dataset['MetaData']['DataType'].split()
             meta_data = dataset['MetaData']
-
             if data_type == 'tabulated':
                 #data is tabulated
-                processed = process_tabulated_data(dataset['Data'])
+                dataset['Data'] = _str_table_to_numeric(dataset['Data'])
+                self._process_table(dataset['Data'], identifier,
+                                    meta_data=meta_data)
             elif data_type == 'formula' or data_type == 'model':
                 #data is a formula with coefficients
                 self._process_formula_data(dataset)
             else:
                 raise ValueError("data type {} not supported".format(data_type))
 
-            if data_type == 'tabulated':
-                if (meta_data['SpectrumType'] and \
-                    meta_data['SpectrumType'] is not None):
-                    self.defaults['spectrum_type'] = meta_data['SpectrumType']
-                if (meta_data['Unit'] and \
-                    meta_data['Unit'] is not None):
-                    self.defaults['unit'] = meta_data['Unit']
-                sp_dat_fr_tb = self._spec_data_from_table
-                if identifier == 'nk':
-                    self.data['name'] = 'nk'
-                    self.data['real'] = sp_dat_fr_tb(processed[:, [0, 1]])
-                    self.data['imag'] = sp_dat_fr_tb(processed[:, [0, 2]])
-                elif identifier == 'n':
-                    self.data['name'] = 'nk'
-                    self.data['real'] = sp_dat_fr_tb(processed)
-                elif identifier == 'k':
-                    self.data['name'] = 'nk'
-                    self.data['imag'] = sp_dat_fr_tb(processed)
+    def _process_table(self, table, identifier, meta_data=None):
+        """
+        Uses a table(np.ndarray) and metadata to set relevant class attributes
+        """
+        if meta_data is None:
+            meta_data = {}
+
+        if ('SpectrumType' in meta_data and \
+            meta_data['SpectrumType'] and \
+            meta_data['SpectrumType'] is not None):
+            self.defaults['spectrum_type'] = meta_data['SpectrumType']
+        if ('Unit' in meta_data and \
+            meta_data['Unit'] and \
+            meta_data['Unit'] is not None):
+            self.defaults['unit'] = meta_data['Unit']
+
+        if identifier == 'nk':
+            self.data['name'] = 'nk'
+            self.data['real'] = self._spec_data_from_table(table[:, [0, 1]])
+            self.data['imag'] = self._spec_data_from_table(table[:, [0, 2]])
+        elif identifier == 'n':
+            self.data['name'] = 'nk'
+            self.data['real'] = self._spec_data_from_table(table)
+        elif identifier == 'k':
+            self.data['name'] = 'nk'
+            self.data['imag'] = self._spec_data_from_table(table)
 
 
 
@@ -432,7 +460,7 @@ class MaterialData(object):
         self._process_model_dict(model_dict)
 
 
-    def get_nk_data(self, spectrum_values,
+    def get_nk_data(self, spectrum,
                     spectrum_type='wavelength',
                     unit='meter'):
         '''
@@ -446,12 +474,16 @@ class MaterialData(object):
         unit = meter|nanometer|micrometer|hertz|electronvolt
 
         '''
-        if isinstance(spectrum_values, Spectrum):
-            spectrum = spectrum_values
+        if isinstance(spectrum, Spectrum):
+            spectrum_values = spectrum.values
+            spectrum_type = spectrum.spectrum_type
+            unit = spectrum.unit
         else:
-            spectrum = Spectrum(spectrum_values,
-                                spectrum_type=spectrum_type,
-                                unit=unit)
+            spectrum_values = spectrum
+
+        spectrum = Spectrum(spectrum_values,
+                            spectrum_type=spectrum_type,
+                            unit=unit)
 
         if not (self.data['name'] == 'nk' or self.data['name'] == 'eps'):
             raise ValueError("data type {}".format(self.data['name']) +
