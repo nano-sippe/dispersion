@@ -128,6 +128,8 @@ class MaterialData(object):
             self._process_table(parsed_args['tabulated_nk'], 'nk')
         elif parsed_args['tabulated_n'] is not None:
             self._process_table(parsed_args['tabulated_n'], 'n')
+        elif parsed_args['tabulated_eps'] is not None:
+            self._process_table(parsed_args['tabulated_eps'], 'eps')
         else:
             self._process_fixed_value(parsed_args)
 
@@ -139,7 +141,8 @@ class MaterialData(object):
         """
         mutually_exclusive = {"file_path", "fixed_n", "fixed_nk",
                               "fixed_eps_r", "fixed_eps",
-                              "tabulated_nk","tabulated_n",
+                              "tabulated_nk", "tabulated_n",
+                              "tabulated_eps",
                               "model_kw"}
         inputs = {}
         n_mutually_exclusive = 0
@@ -179,13 +182,15 @@ class MaterialData(object):
         dict_types = {dict}
         self._check_type(inputs, dict_args, dict_types)
 
-        array_args = {'tabulated_nk','tabulated_n'}
+        array_args = {'tabulated_nk','tabulated_n', 'tabulated_eps'}
         array_types = {np.ndarray}
         self._check_type(inputs, array_args, array_types)
         if inputs['tabulated_nk'] is not None:
             _check_table_shape(inputs['tabulated_nk'],3,'nk')
         if inputs['tabulated_n'] is not None:
             _check_table_shape(inputs['tabulated_n'],2,'n')
+        if inputs['tabulated_eps'] is not None:
+            _check_table_shape(inputs['tabulated_eps'],3,'eps')
 
         return inputs
 
@@ -390,7 +395,10 @@ class MaterialData(object):
         elif identifier == 'k':
             self.data['name'] = 'nk'
             self.data['imag'] = self._spec_data_from_table(table)
-
+        elif identifier == 'eps':
+            self.data['name'] = 'eps'
+            self.data['real'] = self._spec_data_from_table(table[:, [0, 1]])
+            self.data['imag'] = self._spec_data_from_table(table[:, [0, 2]])
 
 
     def _spec_data_from_table(self, data):
@@ -497,6 +505,13 @@ class MaterialData(object):
             complex_val = self.data['complex'].evaluate(spectrum)
 
         if self.data['name'] == 'eps':
+            """
+            real = np.real(complex_val)
+            imag = np.imag(complex_val)
+            n = np.sqrt(0.5* (real + np.sqrt(real**2 + imag**2)))
+            k = imag/(2*n)
+            complex_val = n + 1j*k
+            """
             complex_val = np.sqrt(complex_val)
         return complex_val
 
