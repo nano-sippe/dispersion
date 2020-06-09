@@ -245,9 +245,10 @@ class MaterialDatabase(object):
         elif isinstance(identifier, int):
             row = self.database.iloc[identifier, :]
         else:
-            raise ValueError("identifier must be of type str")
-        file_path = os.path.join(self.base_path,
-                                 row.Database, row.Path)
+            raise ValueError("identifier must be of type str")        
+        file_path = os.path.normpath(os.path.join(self.base_path,
+                                                  row.Database,
+                                                  row.Path.replace('\\','/')))
         mat = MaterialData(file_path=file_path,
                            spectrum_type=row.SpectrumType,
                            unit=row.Unit)
