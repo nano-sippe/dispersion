@@ -8,10 +8,12 @@ import codecs
 import warnings
 #import yaml
 import numpy as np
+"""
 try:
     from ruamel.yaml import YAML
 except ModuleNotFoundError as e:
     from ruamel_yaml import YAML
+"""
 import pandas as pd
 ver = pd.__version__
 split = ver.split(".")
@@ -20,6 +22,7 @@ PANDAS_MINOR_VERSION = int(split[1])
 from refractive_index_database.material_data import MaterialData
 from refractive_index_database.spectrum import Spectrum
 from refractive_index_database.config import get_config
+from refractive_index_database.io import read_yaml_file
 
 def rebuild_database():
     valid_ans = False
@@ -242,7 +245,7 @@ class MaterialDatabase(object):
         elif isinstance(identifier, int):
             row = self.database.iloc[identifier, :]
         else:
-            raise ValueError("identifier must be of type str")        
+            raise ValueError("identifier must be of type str")
         file_path = os.path.join(self.base_path,
                                  row.Database, row.Path)
         mat = MaterialData(file_path=file_path,
@@ -265,12 +268,10 @@ class MaterialDatabase(object):
         website"""
         self.rii_loader = {}
         self.rii_loader['db_path'] = db_path
-        with codecs.open(os.path.join(db_path, "library.yml"),
-                         'r', encoding='utf8') as stream:
-            data = YAML(typ='safe').load(stream)
-            dframe = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
-            self.rii_loader['database_list'] = []
-            self._iterate_shelves(data)
+        data = read_yaml_file(os.path.join(db_path, "library.yml"))
+        dframe = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
+        self.rii_loader['database_list'] = []
+        self._iterate_shelves(data)
 
         dframe = pd.DataFrame(self.rii_loader['database_list'],
                               columns=MaterialDatabase.META_DATA.keys())
