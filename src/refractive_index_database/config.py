@@ -1,11 +1,14 @@
 # config.py
 import sys
 import os
+from refractive_index_database.io import (read_yaml_file, read_yaml_string,
+                                         write_yaml_file)
+"""
 try:
     from ruamel.yaml import YAML
 except ModuleNotFoundError as e:
     from ruamel_yaml import YAML
-
+"""
 def default_config():
     yaml_str = """\
     Path: /path/to/database/file/structure
@@ -19,24 +22,19 @@ def default_config():
       SpectrumType: wavelength
       Unit: nanometer
     """
-    yaml = YAML()
-    config = yaml.load(yaml_str)
+    config = read_yaml_string(yaml_str)
     return config
 
 def write_config(config):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     file_path = os.path.join(dir_path,'config.yaml')
-    with open(file_path,'w') as fp:
-        yaml = YAML()
-        yaml.dump(config,fp)
+    write_yaml_file(file_path, config)
 
 def read_config():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     file_path = os.path.join(dir_path,'config.yaml')
     if os.path.isfile(file_path):
-        with open(file_path,'r') as fp:
-            yaml = YAML()
-            config = yaml.load(fp)
+        config = read_yaml_file(file_path)
     else:
         config = default_config()
     return config

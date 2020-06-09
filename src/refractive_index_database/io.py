@@ -1,15 +1,23 @@
 import os
-import numpy as np
+import sys
 import codecs
-import pprint
+#import pprint
+import warnings
+import numpy as np
 #import yaml
+USE_RUAMEL = True
 try:
     from ruamel.yaml import YAML
-except ModuleNotFoundError as e:
-    from ruamel_yaml import YAML
-from collections import OrderedDict
-
+except ModuleNotFoundError as exc:
+    warnings.warn("preferred yaml package ruamel.yaml not installed, falling" +
+                  " back to PyYAML, writing yaml files may give inconsistent" +
+                  " round trip results")
+    USE_RUAMEL = False
+    import yaml
+#USE_RUAMEL = False
+#import yaml
 """
+from collections import OrderedDict
 def represent_ordereddict(dumper, data):
     value = []
 
@@ -24,6 +32,58 @@ def represent_ordereddict(dumper, data):
 
 yaml.add_representer(OrderedDict, represent_ordereddict)
 """
+
+
+def read_yaml_file(file_path):
+    """
+    opens yaml file and returns contents as a dict like. If USE_RUAMEL is true
+    an OrderedDict is returned, otherwise a dict is returned
+    """
+    with open(file_path, 'r', encoding="utf-8") as fpt:
+        if USE_RUAMEL:
+            yaml_obj = YAML()
+            yaml_data = yaml_obj.load(fpt)
+        else:
+            yaml_data = yaml.load(fpt, Loader=yaml.FullLoader)
+    print(yaml_data)
+    return yaml_data
+
+def read_yaml_string(string_data):
+    """
+    converts a string to to dict like object. If USE_RUAMEL is true an
+    OrderedDict is returned, otherwise a dict is returned
+    """
+    if USE_RUAMEL:
+        yaml_obj = YAML()
+        yaml_data = yaml_obj.load(string_data)
+    else:
+        yaml_data = yaml.load(string_data, Loader=yaml.FullLoader)
+    return yaml_data
+
+
+def write_yaml_file(file_path, dict_like):
+    """
+    write a dict_like object to a file using the given file path. If USE_RUAMEL
+    is true the writen file will preserve order and comments of read files.
+    """
+    with open(file_path, 'w') as fpt:
+        if USE_RUAMEL:
+            yaml_obj = YAML()
+            yaml_obj.dump(dict_like, fpt)
+        else:
+            yaml.dump(dict_like, fpt)
+
+def print_yaml_string(dict_like):
+    """
+    write a dict_like object to stdout in yaml format.
+    """
+    if USE_RUAMEL:
+        yaml_obj = YAML()
+        return yaml_obj.dump(dict_like, sys.stdout)
+    else:
+        return print(yaml.dump(dict_like))
+
+
 
 class Reader(object):
     """
@@ -66,14 +126,14 @@ class Reader(object):
         if self.extension in txt_types:
             return self.read_text_file()
         elif self.extension == '.yml':
-            return self.read_yaml_file()
+            return self.read_yaml_mat_file()
         else:
             raise ValueError("extension " +
                              "{} not supported".format(self.extension) +
                              ", supported extensions are (.yml|.csv|.txt)")
 
     def _read_text_data(self):
-        fname,ext = os.path.splitext(self.file_path)
+        fname, ext = os.path.splitext(self.file_path)
         try:
             if ext == '.txt':
                 data = np.loadtxt(self.file_path, encoding='utf-8')
@@ -144,28 +204,27 @@ class Reader(object):
             file_dict['MetaComment'] = multi_line_comment
         return file_dict
 
-    def read_yaml_file(self):
+    def read_yaml_mat_file(self):
         '''
         The refractiveindex.info database format
         '''
         #yaml_stream = open(self.file_path, 'r', encoding="utf-8")
         #dir_path = os.path.dirname(os.path.realpath(__file__))
-        with open(self.file_path, 'r',encoding="utf-8") as fp:
-            yaml = YAML()
-            yaml_data = yaml.load(fp)
+        yaml_data = read_yaml_file(self.file_path)
+
         file_dict = dict(self.default_file_dict)
-        file_dict = self.read_yaml_file_dict(file_dict, yaml_data)
+        file_dict = self.process_mat_dict(file_dict, yaml_data)
         file_dict['MetaComment'] = self._read_text_comment()
         return file_dict
 
-    def read_yaml_file_dict(self, file_dict, yamlData):
-        for kwd in yamlData:
+    def process_mat_dict(self, file_dict, yaml_dict):
+        for kwd in yaml_dict:
             kwd = kwd.upper()
-            arg = yamlData[kwd]
+            arg = yaml_dict[kwd]
             valid = False
             if kwd == 'DATA':
                 valid = True
-                file_dict['Datasets'] = self.read_yaml_data_dict(arg)
+                file_dict['Datasets'] = self.process_mat_data_dict(arg)
             elif kwd == 'SPECS':
                 valid = True
                 file_dict['Specification'] = arg
@@ -179,12 +238,11 @@ class Reader(object):
                 KeyError("keyword [{}] in file invalid".format(kwd))
         return file_dict
 
-    def read_yaml_data_dict(self, yamlData):
+    def process_mat_data_dict(self, mat_data):
         aliases = {'ValidRange': {'validRange', 'range',
                                   'spectra_range', 'wavelength_range'}}
-        nDataSet = 0
         dataset_list = []
-        for nDataset, dataset in enumerate(yamlData):
+        for n_data_set, dataset in enumerate(mat_data):
             dataset_list.append(self.create_default_data_dict())
             data_dict = dataset_list[-1]
             dType = dataset['type'].lstrip()

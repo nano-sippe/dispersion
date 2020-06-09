@@ -500,3 +500,29 @@ class DrudeLorentz(Model):
         w_res = self.model_parameters[1] # frequency of Lorentz pole in eV
         loss = self.model_parameters[2] # loss in eV
         return ones - omega_p**2/((np.power(energies, 2)-w_res**2)+1j*loss*energies)
+
+
+class Fano(Model):
+
+    '''
+    this model can be applied to scattering cross sections
+    requires energy input in eV
+    returns real and imaginary parts of permittivity
+    '''
+    def input_output(self):
+        """defines the required inputs and the output spectrum type"""
+        self.required_spectrum_type = 'energy'
+        self.required_unit = 'ev'
+        self.output = 'scattering_cross_setion'
+
+    def evaluate(self, spectrum):
+        """returns the value of the spectral data for the given spectrum"""
+        [ones, energies] = self.preprocess(spectrum)
+        q = self.model_parameters[0] # Fano parameter
+        e_r = self.model_parameters[1] # resonant energy in eV
+        gamma = self.model_parameters[2] # loss in eV
+        epsilon =  2*(energies-e_r)/gamma
+        #loss = self.model_parameters[1] # loss in eV
+        norm = (1+q**2)
+        sigma = (1/norm) *(epsilon+q)**2 / (epsilon**2+1)
+        return sigma
