@@ -32,7 +32,7 @@ def rebuild_database():
             valid_ans = True
             return
         elif ans == 'y':
-            valid_ans =True
+            valid_ans = True
 
     mdb = MaterialDatabase(rebuild='All')
 
@@ -99,22 +99,27 @@ class MaterialDatabase(object):
         self.make_reference_spectrum(config)
         self.config = config
         self.base_path = config['Path']
+        self.file_name = config['File']
         if rebuild == 'All':
             df = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
         else:
             dtypes = MaterialDatabase.META_DATA
             df = pd.read_csv(os.path.join(self.base_path,
-                                          'database.csv'),
+                                          self.file_name),
                              dtype=dtypes,
                              na_values=MaterialDatabase.NA_VALUES,
                              keep_default_na=False)
 
-        if not rebuild == 'None':
-            df = self.build_database(df,rebuild)
+        if rebuild != 'None':
+            df = self.build_database(df, rebuild)
         self.database = df
         self.qgrid_widget = None
         if self.config['Interactive']:
-            import qgrid
+            try:
+                import qgrid
+            except ModuleNotFoundError as exc:
+                raise Exception("Interactive mode requires the package" +
+                                'qgrid') from exc
             self.make_qgrid = qgrid.show_grid
 
     def build_database(self, df, rebuild):
@@ -126,7 +131,7 @@ class MaterialDatabase(object):
                        'Filmetrics':self.read_filmetrics_db,
                        'UserData':self.read_user_data_db}
         df_new = pd.DataFrame(columns=MaterialDatabase.META_DATA.keys())
-        for module,valid in config_modules.items():
+        for module, valid in config_modules.items():
             if valid:
                 print("Building {}".format(module))
                 if rebuild == module or rebuild == 'All':
@@ -138,14 +143,14 @@ class MaterialDatabase(object):
                         df_new = df_new.append(dframe, sort=False,
                                                ignore_index=True)
                     else:
-                       df_new = df_new.append(dframe,ignore_index=True)
+                        df_new = df_new.append(dframe, ignore_index=True)
                 else:
                     dframe = df[df.Database == module]
                     if PANDAS_MINOR_VERSION > 22:
                         df_new = df_new.append(dframe, sort=False,
                                                ignore_index=True)
                     else:
-                       df_new = df_new.append(dframe,ignore_index=True)
+                        df_new = df_new.append(dframe, ignore_index=True)
 
             else:
                 if rebuild == module:
@@ -245,7 +250,7 @@ class MaterialDatabase(object):
         elif isinstance(identifier, int):
             row = self.database.iloc[identifier, :]
         else:
-            raise ValueError("identifier must be of type str")        
+            raise ValueError("identifier must be of type str")
         file_path = os.path.normpath(os.path.join(self.base_path,
                                                   row.Database,
                                                   row.Path.replace('\\','/')))
