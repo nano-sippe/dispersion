@@ -1,20 +1,47 @@
-"""spectral_data implements the abstract base class SpectralData which
+"""describes spectrally dependent data
+
+spectral_data implements the abstract base class SpectralData which
 defines a material parameter which has a spectral dependence (e.g.
 refractive index, permittivity). Each of the subclasses must implement
 the evaluate method which returns the material parameter for a given
 Spectrum object.
 
-SpectralData has the following subclasses:
-  Constant: for values that are independent of the spectrum
-  Interplation: for tabulated data values
-  Model: for values generated from a particular model
+Classes
+-------
+SpectralData
+    abstract base class
+Constant: SpectralData
+    for values that are independent of the spectrum
+Interplation: SpectralData
+    for tabulated data values
+Model: SpectralData
+    abstract base class for values generated from a particular model
+Sellmeier: Model
+    implements the Sellmeier model for refractive index
+Sellmeier2: Model
+    implements the modified Sellmeier model for refractive index
+Polynomial: Model
+    implements a polynomial model for refractive index
+RefractiveIndexInfo: Model
+    implements the RefractiveIndexInfo model for refractive index
+Cauchy: Model
+    implements the Cauchy model for refractive index
+Gases: Model
+    implements the Gas model for refractive index
+Herzberger: Model
+    implements the Herzberger model for refractive index
+Retro: Model
+    implements the Retro model for refractive index
+Exotic: Model
+    implements the Exotic model for refractive index
+Drude: Model
+    implements the Drude model for complex permittivity
+DrudeLorentz: Model
+    implements the Drude-Lorentz model for complex permittivity
 
-Model is an abstract base class. Each subclass must implement the methods
-input_output as well as evaluate.
-
-Model has the following subclasses:
-  [Sellmeier, Sellmeier2, Polynomial, RefractiveIndexInfo,
-   Cauchy, Gases, Herzberger, Retro, Exotic, Drude, DrudeLorentz]
+Notes
+-----
+for more information on models see https://refractiveindex.info/about
 """
 
 import numpy as np
@@ -22,11 +49,10 @@ from scipy.interpolate import interp1d, splrep, splev
 from refractive_index_database.spectrum import Spectrum
 
 
-class SpectralData(object):
+class SpectralData():
     '''
     Base class for defining a quantity (e.g. refactive index)
-    which is defined over a given spectrum (see class Spectrum.
-
+    which is defined over a given spectrum (see class Spectrum).
     '''
 
     def __init__(self, valid_range,
