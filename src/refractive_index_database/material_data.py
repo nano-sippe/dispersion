@@ -24,12 +24,9 @@ MaterialData
     processes and interfaces refractive index data.
 """
 
-from __future__ import print_function
-import os
-#import sys
 import codecs
 import numpy as np
-#import matplotlib.pyplot as plt
+from __future__ import print_function
 from refractive_index_database.spectrum import Spectrum
 from refractive_index_database.spectral_data import Constant, Interpolation, \
                                                     Extrapolation
@@ -208,7 +205,7 @@ class MaterialData():
         str_args = {'file_path', 'spectrum_type', 'unit'}
         str_types = {str}
         self._check_type(inputs, str_args, str_types)
-        if inputs['spectrum_type'] is None :
+        if inputs['spectrum_type'] is None:
             inputs['spectrum_type'] = 'wavelength'
         if inputs['unit'] is None:
             inputs['unit'] = 'nanometer'
@@ -384,11 +381,8 @@ class MaterialData():
         if "unit" in model_dict:
             kws['unit'] = model_dict['unit']
             self.defaults['unit'] = model_dict['unit']
-
-
         model = model_class(model_dict['parameters'],
                             model_dict['valid_range'], **kws)
-
         if model.output == 'n':
             self.data['name'] = 'nk'
             self.data['real'] = model
@@ -804,51 +798,4 @@ class MaterialData():
         return spectrum
 
 if __name__ == "__main__":
-    #mat = MaterialData(file_path="./Material_Data/Aluminum.txt")
-    #print(mat.get_nk_data(0.5))
-    """
-    fig = plt.figure()
-    axes = plt.gca()
-    mat = MaterialData(fixed_n=1.5)
-    print(mat.get_maximum_valid_range())
-    mat.plot_permittivity(axes=axes)
-    #mat.plot_nk_data(axes=axes)
-    #print(mat.get_nk_data(0.5, spectrum_type='energy', unit='eV'))
-    #mat = MaterialData(fixed_eps=1.5+3j)
-    #print(mat.get_permittivity(1.0))
-    basePath = "/data/numerik/bzfmanle/Simulations/pypmj/database"
-    filename = "RefractiveIndexInfo/main/Au/Rakic.yml"
-    mat = MaterialData(file_path=os.path.join(basePath, filename),
-                       unit='micrometer')
-    print(mat.get_maximum_valid_range())
-    print(mat.get_nk_data(0.5, unit='micrometer'))
-    mat.plot_permittivity(axes=axes)
-    #mat.plot_nk_data(axes=axes)
-    eVs = np.linspace(0.5, 1.5, 100)
-
-    #mat.plot_nk_data(axes=axes, values=eVs, spectrum_type='energy', unit='ev')
-    plt.show()
-    """
-
-    #print(mat.get_nk_data(np.linspace(0.8, 1.0, 3), spectrum_type='energy', unit='eV'))
-    #print(mat.get_nk_data(3e14, spectrum_type='frequency', unit='Hz'))
-
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/main/Cu/Brimhall.yml",
-    #                   unit='micrometer')
-    #print(mat.get_maximum_valid_range())
-    #print(mat.get_nk_data(12, unit='nanometer'))
-
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/main/SiO2/Gao.yml",
-    #                   unit='micrometer')
-    #print(mat.get_maximum_valid_range())
-    #print(mat.get_nk_data(500, unit='nanometer'))
-
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/other/commercial plastics/CR-39/poly.yml",
-    #                   unit='micrometer')
-    #print(mat.get_maximum_valid_range())
-    #print(mat.get_nk_data(589.29, unit='nanometer'))
-
-    #print(mat.get_permittivity(0.5))
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/main/SiO2/Malitson.yml")
-    #print(mat.get_nk_data(0.5e-6))
-    #print(mat.get_permittivity(0.5e-6))
+    pass
