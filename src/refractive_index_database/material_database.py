@@ -1,27 +1,30 @@
-""" implements the MaterialDatabase class used for administering a
-set of data files on disk which describe spectrally resolved
+"""Database for administering a refractive index data files
+
+The database set of data files on disk which describe spectrally resolved
 refractive index or permittivity data
+
+Functions
+---------
+rebuild_database
+    rebuilds all of the modules in the database
+
+Classes
+-------
+MaterialDatabase
+    administers the catalogue of material data files
 """
-from __future__ import print_function
 import os
-import codecs
 import warnings
-#import yaml
 import numpy as np
-"""
-try:
-    from ruamel.yaml import YAML
-except ModuleNotFoundError as e:
-    from ruamel_yaml import YAML
-"""
 import pandas as pd
+from __future__ import print_function
 ver = pd.__version__
 split = ver.split(".")
 PANDAS_MINOR_VERSION = int(split[1])
 
 from refractive_index_database.material_data import MaterialData
 from refractive_index_database.spectrum import Spectrum
-from refractive_index_database.config import get_config
+from refractive_index_database.config import get_config, validate_config
 from refractive_index_database.io import read_yaml_file
 
 def rebuild_database():
@@ -38,38 +41,35 @@ def rebuild_database():
 
     mdb.save_to_file()
 
-def validate_config(config):
-    """
-    validates all values of the of given MaterialDatabase config
-    """
-    check_type(config['Path'],str)
-    if not os.path.isdir(config['Path']):
-        raise IOError("directory path for database file system is invalid:" +
-                      " <{}>".format(config['Path']))
-    check_type(config['Interactive'],bool)
-    assert "Modules" in config
-    for value in config['Modules'].values():
-        check_type(value,bool)
-    assert "ReferenceSpectrum" in config
-    ref_spec = config['ReferenceSpectrum']
-    check_type(ref_spec['Value'],float)
-    check_type(ref_spec['SpectrumType'],str)
-    check_type(ref_spec['Unit'],str)
-
-def check_type(value,val_type):
-    """
-    checks if value isinstance of val_type, if not raise exception
-    """
-    if not isinstance(value,val_type):
-        raise ValueError("config file data {}".format(value) +
-                         "must be of type {}".format(val_type) +
-                         ", not {}".format(type(value)))
 
 class MaterialDatabase(object):
     """
-    class used for administering a set of data files
-    set of data files on disk which describe spectrally resolved
-    refractive index or permittivity data
+    administers the set of material data files
+
+    this class is used to find and load data files from disk which describe
+    spectrally resolved refractive index or permittivity data into MaterialData
+    objects.
+
+    Parameters
+    ----------
+    config: dict or None
+        configuration data
+    rebuild: list or None
+        which modules which should be rebuilt
+    base_path: str
+        where the database file structure is stored
+    file_name: str
+        name of the database file
+    database: pandas.DataFrame
+        the database of material files
+    qgrid_widget: qgrid.widget
+        iPython widget for interactive editing of the database
+    make_grid: function
+        qgrid function for refreshing the interactive interface
+    reference_spectrum: Spectrum
+        database will provide n/k values at the reference spectrum value
+    rii_loader: dict
+        temporary dict used in constructing the refractive index info database
     """
     # pylint: disable=no-member
     # bug in pylint does not recognise numpy data types
@@ -134,7 +134,7 @@ class MaterialDatabase(object):
         for module, valid in config_modules.items():
             if valid:
                 print("Building {}".format(module))
-                if rebuild == module or rebuild == 'All':
+                if rebuild in {module, 'All'}:
                     db_path = module
                     dir_path = os.path.join(self.base_path, db_path)
                     read_function = all_modules[module]
@@ -226,9 +226,9 @@ class MaterialDatabase(object):
             raise ValueError("row_id: {}".format(row_id) +
                              " with type {}".format(type(row_id)) +
                              " not understood")
-        if alias in self.database.loc[:,'Alias'].values:
+        if alias in self.database.loc[:, 'Alias'].values:
             print("alias in self.database")
-            if not self.database.at[index,'Alias'] == alias:
+            if not self.database.at[index, 'Alias'] == alias:
                 raise ValueError("Alias {} ".format(alias) +
                                  "already in use. Failed to " +
                                  "add to database.")
@@ -236,7 +236,7 @@ class MaterialDatabase(object):
         self.database.at[index, 'Alias'] = alias
 
     def get_material(self, identifier):
-        """get a material from the database using its alias"""
+        """get a material from the database using its alias or row number"""
         if isinstance(identifier, str):
             bool_array = self.database.Alias.values == identifier
             bool_list = bool_array.tolist()
@@ -245,15 +245,15 @@ class MaterialDatabase(object):
                 raise ValueError("identifier {} does not ".format(identifier) +
                                  "name a valid alias in the " +
                                  "database")
-            row = self.database.iloc[row_index[0],:]
+            row = self.database.iloc[row_index[0], :]
 
         elif isinstance(identifier, int):
             row = self.database.iloc[identifier, :]
         else:
-            raise ValueError("identifier must be of type str")
+            raise ValueError("identifier must be of type str or int")
         file_path = os.path.normpath(os.path.join(self.base_path,
                                                   row.Database,
-                                                  row.Path.replace('\\','/')))
+                                                  row.Path.replace('\\', '/')))
         mat = MaterialData(file_path=file_path,
                            spectrum_type=row.SpectrumType,
                            unit=row.Unit)
@@ -295,7 +295,10 @@ class MaterialDatabase(object):
             self._iterate_books(books)
 
 
-    def _iterate_books(self,books):
+    def _iterate_books(self, books):
+        """
+        iterate through the books on the shelf
+        """
         for book in books:
             if "DIVIDER" in book.keys():
                 self.rii_loader['current_divider'] = book['DIVIDER']
@@ -307,19 +310,26 @@ class MaterialDatabase(object):
                 self._iterate_pages(pages)
 
 
-    def _iterate_pages(self,pages):
+    def _iterate_pages(self, pages):
+        """
+        iterate the pages of the book and add to database
+
+        The pages of the refactiveindex.info database are data files. We iterate
+        over them and add the current shelf, book and page to the database. A
+        MaterialData object is created from the data file.
+        """
         for page in pages:
             if "DIVIDER" in page:
                 continue
             elif "PAGE" in page:
                 db_path = self.rii_loader['db_path']
-                rel_path = os.path.join('data',page['data'])
-                full_file = os.path.join(db_path,rel_path)
+                rel_path = os.path.join('data', page['data'])
+                full_file = os.path.join(db_path, rel_path)
                 try:
                     mat = MaterialData(file_path=full_file,
-                                   spectrum_type='wavelength',
-                                   unit='micrometer')
-                except Exception as e:
+                                       spectrum_type='wavelength',
+                                       unit='micrometer')
+                except OSError as exc:
                     warnings.warn("file {} ".format(full_file) +
                                   "could not be opened, skipping")
                     continue
@@ -346,48 +356,6 @@ class MaterialDatabase(object):
                 content_dict['N_Reference'] = np.real(ref_index)
                 content_dict['K_Reference'] = np.imag(ref_index)
                 self.rii_loader['database_list'].append(content_dict)
-
-
-
-
-    def _read_ri_info_pages(self, db_path, shelf, book, database_list):
-        for book_content in book:
-            if "DIVIDER" in book_content:
-                continue
-            #page = book_content['PAGE']
-            #data_set_name = book_content['name']
-            #path = book_content['data']
-            full_file = os.path.join(db_path,
-                                     'data',
-                                     book_content['data'])
-            mat = MaterialData(file_path=full_file,
-                               spectrum_type='wavelength',
-                               unit='micrometer')
-            content_dict = {"Alias":"",
-                            "Name":shelf['BOOK'],
-                            "FullName":shelf['name'],
-                            "Author":book['PAGE'],
-                            "Path":book['data'],
-                            "Database":"RefractiveIndexInfo"}
-            content_dict['SpectrumType'] = 'wavelength'
-            content_dict['Unit'] = 'micrometer'
-            valid_range = mat.get_maximum_valid_range()
-            content_dict['SpectrumLowerBound'] = valid_range[0]
-            content_dict['SpectrumUpperBound'] = valid_range[1]
-            content_dict['Reference'] = mat.meta_data['Reference']
-            content_dict['Comment'] = mat.meta_data['Comment']
-            try:
-                ref_spectrum = self.reference_spectrum
-                ref_index = mat.get_nk_data(ref_spectrum)
-            except ValueError:
-                ref_index = np.nan + 1j* np.nan
-
-            content_dict['N_Reference'] = np.real(ref_index)
-            content_dict['K_Reference'] = np.imag(ref_index)
-            database_list.append(content_dict)
-        return database_list
-
-
 
     def read_filmetrics_db(self, db_path):
         """read the file structure provided my filmetrics.com"""

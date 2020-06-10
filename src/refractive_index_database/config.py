@@ -12,6 +12,39 @@ else:
     raise OSError("curret os type could not be determined."+
                   " Configuration file location unknown.")
 
+
+def validate_config(config):
+    """
+    validates the data types of the configuration
+
+    Parameters
+    config: dict
+        dictionary containing all configuration
+    """
+    check_type(config['Path'],str)
+    if not os.path.isdir(config['Path']):
+        raise IOError("directory path for database file system is invalid:" +
+                      " <{}>".format(config['Path']))
+    check_type(config['Interactive'],bool)
+    assert "Modules" in config
+    for value in config['Modules'].values():
+        check_type(value,bool)
+    assert "ReferenceSpectrum" in config
+    ref_spec = config['ReferenceSpectrum']
+    check_type(ref_spec['Value'],float)
+    check_type(ref_spec['SpectrumType'],str)
+    check_type(ref_spec['Unit'],str)
+
+def check_type(value, val_type):
+    """
+    checks if value isinstance of val_type, if not raise exception
+    """
+    if not isinstance(value,val_type):
+        raise ValueError("config file data {}".format(value) +
+                         "must be of type {}".format(val_type) +
+                         ", not {}".format(type(value)))
+
+
 def default_config():
     """provides default values for the configuration.
 
