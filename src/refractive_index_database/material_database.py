@@ -13,11 +13,11 @@ Classes
 MaterialDatabase
     administers the catalogue of material data files
 """
+from __future__ import print_function
 import os
 import warnings
 import numpy as np
 import pandas as pd
-from __future__ import print_function
 ver = pd.__version__
 split = ver.split(".")
 PANDAS_MINOR_VERSION = int(split[1])
@@ -193,9 +193,8 @@ class MaterialDatabase(object):
         """
         saves changes made to the qgrid when interfactive edit mode has been
         used"""
-        #dframe = self.qgrid_widget._unfiltered_dframe
-        #dframe.remove
-        #dframe_new = self.qgrid_widget.get_changed_df()
+        if self.config['Interactive'] is False:
+            raise ValueError("interactivity disabled in config")
         self.database = self.qgrid_widget.get_changed_df()
 
     def get_database(self):
@@ -206,12 +205,10 @@ class MaterialDatabase(object):
         """set the pandas data frame"""
         self.database = database
 
-    def save_to_file(self, path=None):
+    def save_to_file(self):
         """save the pandas dataframe to the root path of the database
         file structure"""
-        if path is None:
-            path = self.base_path
-        self.database.to_csv(os.path.join(path, "database.csv"),
+        self.database.to_csv(os.path.join(self.base_path, self.file_name),
                              index=False, index_label='Index')
 
     def register_alias(self, row_id, alias):

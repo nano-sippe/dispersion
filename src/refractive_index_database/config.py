@@ -54,21 +54,22 @@ def default_config():
         the tree of configuration data
     """
     yaml_str = """\
-    Path: /path/to/database/file/structure
+    Path: {}
+    File: database.csv
     Interactive: true #for jupyter interfactive editing
     Modules: # which databases to include
       UserData: true
       RefractiveIndexInfo: true
-      Filmetrics: true
+      Filmetrics: false
     ReferenceSpectrum: # evaluate n and k at given spectral value
       Value: 632.8
       SpectrumType: wavelength
       Unit: nanometer
-    """
+    """.format(_get_user_config_dir())
     config = read_yaml_string(yaml_str)
     return config
 
-def _get_config_dir():
+def _get_user_config_dir():
     if PLATFORM == 'Windows':
         user_dir = os.environ["LOCALAPPDATA"]
         config_dir = os.path.join(user_dir, "refractive_index_database")
@@ -76,8 +77,24 @@ def _get_config_dir():
         home_dir = os.environ["HOME"]
         config_dir = os.path.join(home_dir, ".config",
                                   "refractive_index_database")
+    if not os.path.exists(config_dir):
+        os.mkdir(config_dir)
     return config_dir
 
+def _get_package_dir():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    return dir_path
+
+def _get_config_dir():
+    user_dir = _get_user_config_dir()
+    file_path = os.path.join(user_dir, 'config.yaml')
+    if os.path.isfile(file_path):
+        return user_dir
+    pkg_dir = _get_package_dir()
+    file_path = os.path.join(pkg_dir, 'config.yaml')
+    if os.path.isfile(file_path):
+        return pkg_dir
+    return user_dir
 
 def write_config(config):
     """write the configuration data to file.

@@ -23,6 +23,11 @@ setuptools.setup(
     python_requires='>=3.6',
     package_data = {'refractive_index_database':['config.yaml']},
     include_package_data=True,
+    entry_points = {
+        'console_scripts': ['setup_refractive_index_database='+
+                            'refractive_index_database.scripts'+
+                            'setup_database:main'],
+    }
 )
 
 #data_files=[('config',['cfg/config.yaml'])],

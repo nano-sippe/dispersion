@@ -23,10 +23,9 @@ Classes
 MaterialData
     processes and interfaces refractive index data.
 """
-
+from __future__ import print_function
 import codecs
 import numpy as np
-from __future__ import print_function
 from refractive_index_database.spectrum import Spectrum
 from refractive_index_database.spectral_data import Constant, Interpolation, \
                                                     Extrapolation
@@ -154,7 +153,7 @@ class MaterialData():
                      'real': None,
                      'imag': None,
                      'complex':None}
-        self.options = {'InterpOrder':'cubic'}
+        self.options = {'interp_oder':parsed_args["interp_order"]}
         self.defaults = {'unit':parsed_args["unit"],
                          'spectrum_type':parsed_args["spectrum_type"]}
 
@@ -209,8 +208,14 @@ class MaterialData():
             inputs['spectrum_type'] = 'wavelength'
         if inputs['unit'] is None:
             inputs['unit'] = 'nanometer'
+        if inputs['interp_order'] is None:
+            inputs['interp_order'] = 1
         # pylint: disable=no-member
         # bug in pylint does not recognise numpy data types
+        int_args = {'interp_oder'}
+        int_types = {int}
+        self._check_type(inputs, int_args, int_types)
+
         float_args = {"fixed_n", "fixed_eps_r"}
         float_types = {float, np.double}
         self._check_type(inputs, float_args, float_types)
