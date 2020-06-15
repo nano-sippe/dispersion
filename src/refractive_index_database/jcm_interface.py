@@ -3,21 +3,20 @@ import sys
 import os
 
 def get_permittivity(inputs):
-    print(inputs)
-
     if not isinstance(inputs, dict):
         raise ValueError("this function requires a dicionary input")
-    required_keys = {'path', 'name', 'EMOmega'}
+    required_keys = {'Path', 'Name', 'EMOmega'}
     for required_key in required_keys:
         if required_key not in inputs:
             raise ValueError("missing {} in input dict".format(required_key))
-    if not isinstance(inputs['name'], str):
-        raise ValueError("input {} must be of type {}".format("name", str))
-    if not isinstance(inputs['path'], str):
-        raise ValueError("input {} must be of type {}".format("path", str))
+    if not isinstance(inputs['Name'], str):
+        raise ValueError("input {} must be of type {}".format("Name", str))
+    if not isinstance(inputs['Path'], str):
+        raise ValueError("input {} must be of type {}".format("Path", str))
     correct_type = False
+    inputs['EMOmega'] = inputs['EMOmega'].reshape(1,)
     for val in {float, complex}:
-        if isinstance(inputs['EMOmega'], val):
+        if isinstance(inputs['EMOmega'][0], val):
             correct_type = True
 
     if not correct_type:
@@ -28,11 +27,13 @@ def get_permittivity(inputs):
     from refractive_index_database.material_database import MaterialDatabase
 
     config = get_config()
-    config['Path'] = inputs['path']
+    config['Path'], config['File'] = os.path.split(inputs['Path'])
+    
     mdb = MaterialDatabase(config=config)
-    mat = mdb.get_material(inputs['name'])
-    omega = real(inputs['EMOmega']).reshape(1,)
+    mat = mdb.get_material(inputs['Name'])
+    omega = real(inputs['EMOmega'])
     complex_eps = mat.get_permittivity(omega,
                                spectrum_type='angularfrequency',
                                unit='1/s')
-    return eye(3,3)*complex_eps
+    return_val = eye(3)*complex_eps
+    return return_val
