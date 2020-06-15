@@ -1,17 +1,31 @@
-"""material_data implements the MaterialData class which can hold different
-representations of spectral data (e.g. refractive index of permittivity).
+"""holds the complex refactive index or permittivity data
+
+material_data implements the MaterialData class which can hold different
+representations of spectral data (e.g. refractive index or permittivity).
 The data is in the form of either a constant value, tabulated data or a model.
 These different representations can be combined e.g. model for n (real part
 of refractive index) and constant value for k (imaginary part of refractive
 index)
-"""
 
+Functions
+---------
+validate_table
+    checks that tabulated data can be interpolated
+fix_table
+    removes rows of table which stop interpolation from happening
+_str_table_to_numeric
+    convert a string table to a numpy array
+_check_table_shape
+    validate that a numpy array has a given shape
+
+Classes
+-------
+MaterialData
+    processes and interfaces refractive index data.
+"""
 from __future__ import print_function
-import os
-#import sys
 import codecs
 import numpy as np
-#import matplotlib.pyplot as plt
 from refractive_index_database.spectrum import Spectrum
 from refractive_index_database.spectral_data import Constant, Interpolation, \
                                                     Extrapolation
@@ -71,28 +85,54 @@ def _str_table_to_numeric(table):
         numeric_table = fix_table(numeric_table)
     return numeric_table
 
-def _check_table_shape(table,ncols,name):
-    if (not len(table.shape) ==2 or
+def _check_table_shape(table, ncols, name):
+    """
+    check that numpy array shape has the correct number of columns
+    """
+    if (not len(table.shape) == 2 or
         not table.shape[1] == ncols):
         raise ValueError("tabulated {} data ".format(name) +
                          "must have shape Nx{}".format(ncols))
 
-class MaterialData(object):
+class MaterialData():
     '''
-    Class for processing data from files into
-    a model for n and k (or eps_r and eps_i)
+    Class for processing refractive index and permittivity data
 
-    mutually exclusive arguments:
-      file_path(str): file path to load data from
-      fixed_n(float): fixed real part of refractive index
-      fixed_nk(complex): fixed complex refractive index
-      fixed_eps_r(float): fixed real part of permittivity
-      fixed_eps(complex): fixed complex permittivity
-      model_kw(dict): dictionary with information for model
-                      see _process_model_dict
-    other arguments:
-      spectrum_type(str): sets the default spectrum type
-      unit(str): sets the default unit
+    Mutually Exclusive Parameters
+    -----------------------------
+    file_path: str
+        file path from which to load data
+    fixed_n: float
+        fixed real part of refractive index
+    fixed_nk: complex
+        fixed complex refractive index
+    fixed_eps_r: float
+        fixed real part of permittivity
+    fixed_eps: complex
+        fixed complex permittivity
+    tabulated_n: Nx2 array
+        table of real part of refractive index to interpolate
+    tabulated_nk: Nx3 array
+        table of real and imaginary refractive index values to interpolate
+    tabulated_eps: Nx3 array
+        table of real and imaginary permittivity values to interpolate
+    model_kw: dict
+        model parameters
+
+    Other Parameters
+    ----------------
+    spectrum_type: str
+        sets the default spectrum type
+    unit: str
+        sets the default unit
+    meta_data: dict
+        contains the meta data for the material
+    data: dict
+        holds one or two SpectralData objects to describe the data
+    options: dict
+        holds options for the material object
+    defaults: dict
+        default values for spectrum data
     '''
 
     def __init__(self, **kwargs):
@@ -113,7 +153,7 @@ class MaterialData(object):
                      'real': None,
                      'imag': None,
                      'complex':None}
-        self.options = {'InterpOrder':'cubic'}
+        self.options = {'interp_oder':parsed_args["interp_order"]}
         self.defaults = {'unit':parsed_args["unit"],
                          'spectrum_type':parsed_args["spectrum_type"]}
 
@@ -164,12 +204,18 @@ class MaterialData(object):
         str_args = {'file_path', 'spectrum_type', 'unit'}
         str_types = {str}
         self._check_type(inputs, str_args, str_types)
-        if inputs['spectrum_type'] is None :
+        if inputs['spectrum_type'] is None:
             inputs['spectrum_type'] = 'wavelength'
         if inputs['unit'] is None:
             inputs['unit'] = 'nanometer'
+        if inputs['interp_order'] is None:
+            inputs['interp_order'] = 1
         # pylint: disable=no-member
         # bug in pylint does not recognise numpy data types
+        int_args = {'interp_oder'}
+        int_types = {int}
+        self._check_type(inputs, int_args, int_types)
+
         float_args = {"fixed_n", "fixed_eps_r"}
         float_types = {float, np.double}
         self._check_type(inputs, float_args, float_types)
@@ -182,15 +228,15 @@ class MaterialData(object):
         dict_types = {dict}
         self._check_type(inputs, dict_args, dict_types)
 
-        array_args = {'tabulated_nk','tabulated_n', 'tabulated_eps'}
+        array_args = {'tabulated_nk', 'tabulated_n', 'tabulated_eps'}
         array_types = {np.ndarray}
         self._check_type(inputs, array_args, array_types)
         if inputs['tabulated_nk'] is not None:
-            _check_table_shape(inputs['tabulated_nk'],3,'nk')
+            _check_table_shape(inputs['tabulated_nk'], 3, 'nk')
         if inputs['tabulated_n'] is not None:
-            _check_table_shape(inputs['tabulated_n'],2,'n')
+            _check_table_shape(inputs['tabulated_n'], 2, 'n')
         if inputs['tabulated_eps'] is not None:
-            _check_table_shape(inputs['tabulated_eps'],3,'eps')
+            _check_table_shape(inputs['tabulated_eps'], 3, 'eps')
 
         return inputs
 
@@ -227,23 +273,42 @@ class MaterialData(object):
     def remove_absorption(self):
         """
         sets loss (k or epsi) to constant zero value
+
+        Warnings
+        --------
+        has no effect if the material is defined as via complex data instead of
+        separate real and imaginary parts.
         """
         self.data['imag'] = Constant(0.0)
 
-    def extrapolate(self,new_spectrum,spline_order=2):
-        """
-        extrapolates the material data for cover the range defined by the
+    def extrapolate(self, new_spectrum, spline_order=2):
+        """extrpolates the material data
+
+        extrapolates the material data to cover the range defined by the
         spectrum new_spectrum. if new_spectrum has only one element, the data
         will be extrapolated from the relevant end of its valid range up to the
         value given by new_spectrum. spline_order defines the order of the
         spline used for extrapolation. The results of the extrapolation depend
         heavily on the order chosen, so please check the end result to make
         sure it make physical sense.
+
+        Parameters
+        ----------
+        new_spectrum: Spectrum
+            the values to exrapolate to
+        spline_order: int
+            the order of spline to use for interpolation -> extrpolation
+
+        Raises
+        ------
+        NotImplementedError
+            if the material is defined as via a complex value
+
         """
 
         if self.data['complex'] is None:
-            for data_name in ['real','imag']:
-                if isinstance(self.data[data_name],Constant):
+            for data_name in ['real', 'imag']:
+                if isinstance(self.data[data_name], Constant):
                     continue
                 self.data[data_name] = Extrapolation(self.data[data_name],
                                                      new_spectrum,
@@ -253,43 +318,65 @@ class MaterialData(object):
                                       "for materials with real and imaginary "+
                                       "parts not independent from each other")
 
-    def _process_fixed_value(self, input_dict):
+    def _process_fixed_value(self, inputs):
+        '''use fixed value inputs to set n/k or permittivity
+
+        the fixed value is converted to a SpectralData.Constant object and
+        included in the data dict
+
+        Parameters
+        ----------
+        inputs: dict
+            the dict holding the fixed value
         '''
-        use fixed value input to set n/k
-        or permittivity to SpectralData.Constant objects
-        '''
-        if input_dict['fixed_n'] is not None:
+        if inputs['fixed_n'] is not None:
             self.data['name'] = 'nk'
-            self.data['real'] = Constant(input_dict['fixed_n'])
+            self.data['real'] = Constant(inputs['fixed_n'])
             #self._k = Constant(0.0)
-        elif input_dict['fixed_nk'] is not None:
+        elif inputs['fixed_nk'] is not None:
             self.data['name'] = 'nk'
-            self.data['real'] = Constant(np.real(input_dict['fixed_nk']))
-            self.data['imag'] = Constant(np.imag(input_dict['fixed_nk']))
-        elif input_dict['fixed_eps_r'] is not None:
+            self.data['real'] = Constant(np.real(inputs['fixed_nk']))
+            self.data['imag'] = Constant(np.imag(inputs['fixed_nk']))
+        elif inputs['fixed_eps_r'] is not None:
             self.data['name'] = 'eps'
-            self.data['real'] = Constant(input_dict['fixed_eps_r'])
+            self.data['real'] = Constant(inputs['fixed_eps_r'])
             #self._epsi = Constant(0.0)
-        elif input_dict['fixed_eps'] is not None:
+        elif inputs['fixed_eps'] is not None:
             self.data['name'] = 'eps'
-            self.data['real'] = Constant(np.real(input_dict['fixed_eps']))
-            self.data['imag'] = Constant(np.imag(input_dict['fixed_eps']))
+            self.data['real'] = Constant(np.real(inputs['fixed_eps']))
+            self.data['imag'] = Constant(np.imag(inputs['fixed_eps']))
         else:
             raise RuntimeError("Failed to set a constant value for n,k or eps")
 
     def _process_model_dict(self, model_dict):
-        """
-        use dict to return a SpectralData.Model object and sets the relevant
-        n/k or permittivity class attributes
+        """use model parameter input to set n/k or permittivity
 
-        dict items:
-        name(str): class name of the model (see spectral_data.py)
-        spectrum_type(str): spectrum Type (see spctrum.py)
-        unit(str): spetrum unit (see spctrum.py)
-        valid_range(np.array): min and max of the spectral range
-                              for which the model is valid
-        parameters(np.array): all paramters (i.e. coefficients)
-                              needed for the model
+        use model_dict to return a SpectralData.Model object and sets the
+        relevant n/k or permittivity class attributes
+
+        Parameters
+        ----------
+        model_dict: dict
+            contains data for model creates (see notes)
+
+        Raises
+        ------
+        ValueError
+            if the model output does not yield n/k or permittivity
+
+        Notes
+        -----
+        model_dict must contain the fields:
+        name: str
+            class name of the model (see spectral_data.py)
+        spectrum_type: str
+            spectrum Type (see spctrum.py)
+        unit: str
+            spetrum unit (see spctrum.py)
+        valid_range: 2x1 np.array
+            min and max of the spectral range for which the model is valid
+        parameters: np.array
+            all paramters (i.e. coefficients) needed for the model
         """
         model_class = self._str_to_class(model_dict['name'])
         kws = {}
@@ -299,11 +386,8 @@ class MaterialData(object):
         if "unit" in model_dict:
             kws['unit'] = model_dict['unit']
             self.defaults['unit'] = model_dict['unit']
-
-
         model = model_class(model_dict['parameters'],
                             model_dict['valid_range'], **kws)
-
         if model.output == 'n':
             self.data['name'] = 'nk'
             self.data['real'] = model
@@ -327,9 +411,22 @@ class MaterialData(object):
 
     @staticmethod
     def _str_to_class(field):
-        """
+        """evaluates string as a class.
+
         tries to evaluate the given string as a class from the spectral_data
-        module
+        module.
+
+        Parameters
+        ----------
+        field: str
+            name to convert to class
+
+        Raises
+        ------
+        NameError
+            the given field is not an attribute
+        TypeError
+            the given field is an attribute but not a class
         """
         try:
             identifier = getattr(spectral_data, field)
@@ -340,10 +437,7 @@ class MaterialData(object):
         raise TypeError("%s is not a class." % field)
 
     def _process_file_data(self, file_dict):
-        """
-        uses dictionary of string values in file_dict
-        to set relevant class attributes
-        """
+        """set meta_data and data from dictionary"""
         self._file_data = file_dict
         self.meta_data = {}
         self.meta_data['Reference'] = file_dict['MetaData']['Reference']
@@ -363,7 +457,7 @@ class MaterialData(object):
                 dataset['Data'] = _str_table_to_numeric(dataset['Data'])
                 self._process_table(dataset['Data'], identifier,
                                     meta_data=meta_data)
-            elif data_type == 'formula' or data_type == 'model':
+            elif data_type in {'formula', 'model'}:
                 #data is a formula with coefficients
                 self._process_formula_data(dataset)
             else:
@@ -371,7 +465,7 @@ class MaterialData(object):
 
     def _process_table(self, table, identifier, meta_data=None):
         """
-        Uses a table(np.ndarray) and metadata to set relevant class attributes
+        Uses a table(np.ndarray) and metadata to set relevant class attributes.
         """
         if meta_data is None:
             meta_data = {}
@@ -403,8 +497,19 @@ class MaterialData(object):
 
     def _spec_data_from_table(self, data):
         '''
-        using first column of data, convert values
-        into a SpectralData object
+        Convert table to SpectralData object.
+
+        Parameters
+        ----------
+        data: Nx2 np.array
+            the tabulated spectral data
+
+        Returns
+        -------
+        Constant(SpectralData)
+            if tabulated data has 1 row the data is constant
+        Interpolation(SpectralData)
+            interpolation of the tabulated data
         '''
         n_rows = data.shape[0]
         spec_type = self.defaults['spectrum_type']
@@ -418,15 +523,15 @@ class MaterialData(object):
                              unit=unit)
 
     def _process_formula_data(self, data_dict):
-        '''
-        create model_dict and call process_model_dict
-        use range and coefficients in input dictionary
-        to return a SpectralData.Model
+        '''prepare dictionary of data for processing.
+
+        create model_dict and call process_model_dict use range and coefficients
+        in input dictionary to return a SpectralData.Model
         '''
         model_dict = {}
         meta_data = data_dict['MetaData']
         data_type, identifier = meta_data['DataType'].split()
-        if not (data_type == 'formula' or data_type == 'mode'):
+        if not (data_type in {'formula', 'mode'}):
             raise ValueError("dataType <{}> not a valid formula or model")
         if data_type == 'formula':
             identifier = int(identifier)
@@ -472,15 +577,23 @@ class MaterialData(object):
                     spectrum_type='wavelength',
                     unit='meter'):
         '''
-        return complex refractive index for a given input
-        spectrum.
+        return complex refractive index for a given input spectrum.
 
+        Parameters
+        ----------
+        spectrum: np.array or Spectrum
+            the spectral values to evaluate
+        spectrum_type: str {'wavelength', 'frequency', 'energy'}
+            type of spectrum
+        unit: str {'meter', 'nanometer', 'micrometer', 'hertz', 'electronvolt'}
+            unit of spectrum (must match spectrum type)
 
-        spectrum_type = wavelength | frequency | energy
-        for more information see SpectralData.py
-
-        unit = meter|nanometer|micrometer|hertz|electronvolt
-
+        Returns
+        -------
+        np.complex128
+            the complex n/k values (if input spectrum has size == 1)
+        np.array with np.complex128 dtype
+            the complex n/k values (if input spectrum has size > 1)
         '''
         if isinstance(spectrum, Spectrum):
             spectrum_values = spectrum.values
@@ -505,13 +618,6 @@ class MaterialData(object):
             complex_val = self.data['complex'].evaluate(spectrum)
 
         if self.data['name'] == 'eps':
-            """
-            real = np.real(complex_val)
-            imag = np.imag(complex_val)
-            n = np.sqrt(0.5* (real + np.sqrt(real**2 + imag**2)))
-            k = imag/(2*n)
-            complex_val = n + 1j*k
-            """
             complex_val = np.sqrt(complex_val)
         return complex_val
 
@@ -519,15 +625,23 @@ class MaterialData(object):
                          spectrum_type='wavelength',
                          unit='meter'):
         '''
-        return complex permittivity for a given input
-        spectrum.
+        return complex permittivity for a given input spectrum.
 
+        Parameters
+        ----------
+        spectrum: np.array or Spectrum
+            the spectral values to evaluate
+        spectrum_type: str {'wavelength', 'frequency', 'energy'}
+            type of spectrum
+        unit: str {'meter', 'nanometer', 'micrometer', 'hertz', 'electronvolt'}
+            unit of spectrum (must match spectrum type)
 
-        spectrum_type = wavelength | frequency | energy
-        for more information see SpectralData.py
-
-        unit = meter|nanometer|micrometer|hertz|electronvolt
-
+        Returns
+        -------
+        np.complex128
+            the complex permittivity values (if input spectrum has size == 1)
+        np.array with np.complex128 dtype
+            the complex permittivity values (if input spectrum has size > 1)
         '''
 
         if isinstance(spectrum_values, Spectrum):
@@ -553,9 +667,15 @@ class MaterialData(object):
         return complex_val
 
     def get_maximum_valid_range(self):
-        """
-        checks both real and imaginary parts of spectral data and finds the
+        """find maximum spectral range that spans real and imaginary data.
+
+        Checks both real and imaginary parts of spectral data and finds the
         maximum spectral range which is valid for both parts.
+
+        Returns
+        -------
+        2x1 np.array
+            the maximum valid range
         """
         if not(self.data['name'] == 'nk' or self.data['name'] == 'eps'):
             raise RuntimeError("valid_range cannot be defined as "+
@@ -665,8 +785,7 @@ class MaterialData(object):
         return plot_data
 
     def get_sample_spectrum(self):
-        """creates a spectrum which covers the maximum valid range
-        of the material data"""
+        """spectrum which covers the maximum valid range of the material data"""
         max_range = self.get_maximum_valid_range()
         if max_range[0] == 0.0 or max_range[1] == np.inf:
             values = np.geomspace(100, 2000, 1000)
@@ -683,53 +802,5 @@ class MaterialData(object):
                                 unit=self.defaults['unit'])
         return spectrum
 
-
 if __name__ == "__main__":
-    #mat = MaterialData(file_path="./Material_Data/Aluminum.txt")
-    #print(mat.get_nk_data(0.5))
-    """
-    fig = plt.figure()
-    axes = plt.gca()
-    mat = MaterialData(fixed_n=1.5)
-    print(mat.get_maximum_valid_range())
-    mat.plot_permittivity(axes=axes)
-    #mat.plot_nk_data(axes=axes)
-    #print(mat.get_nk_data(0.5, spectrum_type='energy', unit='eV'))
-    #mat = MaterialData(fixed_eps=1.5+3j)
-    #print(mat.get_permittivity(1.0))
-    basePath = "/data/numerik/bzfmanle/Simulations/pypmj/database"
-    filename = "RefractiveIndexInfo/main/Au/Rakic.yml"
-    mat = MaterialData(file_path=os.path.join(basePath, filename),
-                       unit='micrometer')
-    print(mat.get_maximum_valid_range())
-    print(mat.get_nk_data(0.5, unit='micrometer'))
-    mat.plot_permittivity(axes=axes)
-    #mat.plot_nk_data(axes=axes)
-    eVs = np.linspace(0.5, 1.5, 100)
-
-    #mat.plot_nk_data(axes=axes, values=eVs, spectrum_type='energy', unit='ev')
-    plt.show()
-    """
-
-    #print(mat.get_nk_data(np.linspace(0.8, 1.0, 3), spectrum_type='energy', unit='eV'))
-    #print(mat.get_nk_data(3e14, spectrum_type='frequency', unit='Hz'))
-
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/main/Cu/Brimhall.yml",
-    #                   unit='micrometer')
-    #print(mat.get_maximum_valid_range())
-    #print(mat.get_nk_data(12, unit='nanometer'))
-
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/main/SiO2/Gao.yml",
-    #                   unit='micrometer')
-    #print(mat.get_maximum_valid_range())
-    #print(mat.get_nk_data(500, unit='nanometer'))
-
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/other/commercial plastics/CR-39/poly.yml",
-    #                   unit='micrometer')
-    #print(mat.get_maximum_valid_range())
-    #print(mat.get_nk_data(589.29, unit='nanometer'))
-
-    #print(mat.get_permittivity(0.5))
-    #mat = MaterialData(file_path="./RefractiveIndexInfo/main/SiO2/Malitson.yml")
-    #print(mat.get_nk_data(0.5e-6))
-    #print(mat.get_permittivity(0.5e-6))
+    pass

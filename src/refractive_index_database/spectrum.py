@@ -1,4 +1,4 @@
-"""spectrum implements the Spectrum class
+"""spectrum is an array of data which defines a physical spectrum
 
 A Spectrum is a numpy array with an associated type which describes
 the physical quantity (e.g. wavelength, energy, etc.) and a unit
