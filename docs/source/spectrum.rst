@@ -21,3 +21,9 @@ unit
 - electronvolt [energy]
 - 1/s [angular frequency]
 - 1/cm [wavenumber]
+
+Full API
+--------
+
+.. automodule:: spectrum
+                :members:

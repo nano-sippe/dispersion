@@ -2,7 +2,7 @@
 
 Modules
 =======
-The refractive_index_database package keeps different literature databases internally
+The ``dispersion`` package keeps different literature databases internally
 separate as so called Modules. This page lists the currently available modules.
 
 UserData
@@ -21,4 +21,3 @@ available via their `github project`_.
 .. _github project: https://github.com/polyanskiy/refractiveindex.info-database/
 
 installing this module using the setup script requires the ``gitlab`` python package.
-

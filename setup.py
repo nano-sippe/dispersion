@@ -4,16 +4,16 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="refractive_index_database", # Replace with your own username
-    version="0.0.1",
+    name="dispersion", # Replace with your own username
+    version="0.1.0",
     author="Phillip Manley",
     author_email="phillip.manley@helmholtz-berlin.de",
-    description="database for refractive index data files",
+    description="support for libraries of optical dispersion (refractive index) data files",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/nano-sippe/refractive_index_database",
+    url="https://github.com/nano-sippe/dispersion",
     packages=setuptools.find_packages(where="src"),
-    package_dir = {"":"src"},
+    package_dir = {"": "src"},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -21,12 +21,14 @@ setuptools.setup(
     ],
     install_requires=['numpy','matplotlib','pandas','ruamel.yaml'],
     python_requires='>=3.6',
-    package_data = {'refractive_index_database':['config.yaml']},
     include_package_data=True,
     entry_points = {
-        'console_scripts': ['setup_refractive_index_database='+
-                            'refractive_index_database.scripts'+
-                            'setup_database:main'],
+        'console_scripts': ['dispersion_setup='+
+                            'dispersion.scripts'+
+                            'setup_dispersion:main',
+                            'dispersion_catalogue_rebuild='+
+                            'dispersion.scripts'+
+                            'catalogue_rebuild:main',],
     }
 )
 

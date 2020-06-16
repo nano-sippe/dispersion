@@ -1,8 +1,8 @@
 """ToDo add unit tests for all models"""
 import pytest
 import numpy as np
-from refractive_index_database.spectral_data import *
-from refractive_index_database.spectrum import Spectrum
+from dispersion import Constant, Interpolation, Sellmeier, Drude
+from dispersion import Spectrum
 
 def test_constant_init():
     spec_data = Constant(1.2)
@@ -15,9 +15,9 @@ def test_interpolation():
     spec_data = Interpolation(data,unit='nanometer')
     spectrum = Spectrum(500e-9)
     assert np.isclose(spec_data.evaluate(spectrum),1.2)
-    spectrum = Spectrum(800e-9)    
+    spectrum = Spectrum(800e-9)
     assert np.isclose(spec_data.evaluate(spectrum),1.4)
-    
+
 def test_sellmeier():
     model_parameters = [0, 0.6961663, 0.0684043, 0.4079426,
                       0.1162414, 0.8974794, 9.896161]
@@ -33,4 +33,3 @@ def test_drude():
     spectrum = Spectrum(0.5876e-6)
     spec_data.evaluate(spectrum)
     #assert np.isclose(spec_data.evaluate(spectrum),1.4585,atol=1e-3)
-    
