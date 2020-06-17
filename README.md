@@ -10,7 +10,7 @@ containing the dispersion of the refractive index of materials.
 
 In optics, the phenomenon that the refractive index depends upon the
 frequency is called the phenomenon of dispersion, because it is the basis
-of the fact that light is “dispersed” by a prism into a spectrum.
+of the fact that light is "dispersed" by a prism into a spectrum.
 
 Feynman Lectures in physics
 
