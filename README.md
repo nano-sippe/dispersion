@@ -1,4 +1,4 @@
-#Dispersion
+# Dispersion
 
 The **dispersion** Python package provides a way of loading and evaluating files
 containing the dispersion of the refractive index of materials.
