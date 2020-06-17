@@ -39,7 +39,7 @@ file structure will be installed. Secondly, you will be asked to
 name the database. Finally you will be asked if you would like to install
 the available modules. See :ref:`ref-Modules` for more information.
 
-now that the database has been setup, we can start using the package. For
+Now that the database has been setup, we can start using the package. For
 examples and further documentation, see the related pages.
 
 Contents
