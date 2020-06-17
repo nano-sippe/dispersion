@@ -6,11 +6,16 @@
 Dispersion
 ==========
 
-    *In optics, dispersion is the phenomenon in which the phase*
-    *velocity of a wave depends on its frequency.*
+    *In optics, the phenomenon that the refractive index depends upon the*
+    *frequency is called the phenomenon of dispersion, because it is the basis*
+    *of the fact that light is “dispersed” by a prism into a spectrum.*
+
+    *Feynman Lectures in physics* [1_]
 
 The ``dispersion`` Python package provides a way of loading and evaluating files
 containing the dispersion of the refractive index of materials.
+
+.. _1: https://www.feynmanlectures.caltech.edu/I_31.html
 
 .. _ref-Setup:
 
