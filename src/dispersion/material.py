@@ -49,8 +49,8 @@ class Material():
     '''
     Class for processing refractive index and permittivity data
 
-    Mutually Exclusive Parameters
-    -----------------------------
+    Parameters
+    ----------
     file_path: str
         file path from which to load data
     fixed_n: float
@@ -69,9 +69,6 @@ class Material():
         table of real and imaginary permittivity values to interpolate
     model_kw: dict
         model parameters
-
-    Other Parameters
-    ----------------
     spectrum_type: str
         sets the default spectrum type
     unit: str
@@ -84,6 +81,13 @@ class Material():
         holds options for the material object
     defaults: dict
         default values for spectrum data
+
+    Warnings
+    --------
+    the parameters file_path, fixed_n, fixed_nk, fixed_eps_r, fixed_eps,
+    tabulated_n, tabulated_nk, tabulated_eps and model_kw are mututally
+    exclusive.
+
     '''
 
     def __init__(self, **kwargs):

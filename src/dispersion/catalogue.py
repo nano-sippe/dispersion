@@ -5,11 +5,13 @@ refractive index or permittivity data
 
 Functions
 ---------
+
 rebuild_database
     rebuilds all of the modules in the database
 
 Classes
 -------
+
 Catalogue
     administers the catalogue of material data files
 """
@@ -50,8 +52,8 @@ class Catalogue(object):
     spectrally resolved refractive index or permittivity data into Material
     objects.
 
-    Parameters
-    ----------
+    
+
     config: dict or None
         configuration data
     rebuild: list or None

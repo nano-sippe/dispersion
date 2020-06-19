@@ -40,6 +40,7 @@ See modules for a list of supported modules.
 
 Building the Catalogue
 ----------------------
+
 Whenever new files are added to the database file system, the catalogue needs to
 be rebuilt.
 
@@ -61,6 +62,7 @@ the modules.
 
 Setting an Alias
 ----------------
+
 Many materials have different data files associated with them. In order to
 uniquely identify materials in the catalogue, a unique alias can be assigned to
 each material. This alias will be used later to extract the material from the
