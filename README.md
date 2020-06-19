@@ -5,6 +5,7 @@ containing the dispersion of the refractive index of materials.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+Read the full documentation at https://dispersion.readthedocs.io/en/latest/index.html
 
 ## Background
 
