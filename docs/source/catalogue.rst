@@ -104,6 +104,11 @@ for the appropriate materials, the catalogue must be saved via,
   cat.save_interactive()
   cat.save_to_file()
 
+The following animation shows the process of interactively editing the
+catalogue.
+
+.. image:: interactive_edit.gif
+
 
 Accessing the Catalogue
 -----------------------

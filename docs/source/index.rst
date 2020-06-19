@@ -56,6 +56,7 @@ Contents
    spectrum
    configuration
    modules
+   file_format
 
 
 * :ref:`genindex`
