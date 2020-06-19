@@ -60,7 +60,6 @@ def default_config():
     Modules: # which databases to include
       UserData: true
       RefractiveIndexInfo: true
-      Filmetrics: false
     ReferenceSpectrum: # evaluate n and k at given spectral value
       Value: 632.8
       SpectrumType: wavelength

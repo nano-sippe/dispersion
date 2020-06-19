@@ -9,12 +9,6 @@ index)
 
 Functions
 ---------
-validate_table
-    checks that tabulated data can be interpolated
-fix_table
-    removes rows of table which stop interpolation from happening
-_str_table_to_numeric
-    convert a string table to a numpy array
 _check_table_shape
     validate that a numpy array has a given shape
 
@@ -26,64 +20,21 @@ Material
 from __future__ import print_function
 import codecs
 import numpy as np
-from dispersion.spectrum import Spectrum
-from dispersion.spectral_data import Constant, Interpolation, \
-                                                    Extrapolation
+#from dispersion import _str_to_class
 import dispersion.spectral_data as spectral_data
-from dispersion.io import Reader
+from dispersion import Spectrum
+from dispersion import Constant, Interpolation, \
+                                                    Extrapolation
+
+#from dispersion.spectral_data import _numeric_to_string_table
+from dispersion.io import (Reader, _numeric_to_string_table,
+                           _str_table_to_numeric)
 
 
 
-def validate_table(tabulated_data):
-    '''
-    check that spectral part (first column) is
-    monotonically increasing to be able to interpolate
-    '''
-    return np.all(tabulated_data[1:, 0] > tabulated_data[:-1, 0])
 
 
-def fix_table(tabulated_data):
-    '''
-    throw out rows which break strict monotonicity
-    '''
-    n_cols = tabulated_data.shape[1]
-    new_rows = [tabulated_data[0, :]]
-    last_valid = tabulated_data[0, 0]
-    for row in range(1, tabulated_data.shape[0]):
-        if not tabulated_data[row, 0] > last_valid:
-            continue
-        else:
-            new_rows.append(tabulated_data[row, :])
-            last_valid = tabulated_data[row, 0]
-    return np.array(new_rows).reshape(-1, n_cols)
 
-
-def _str_table_to_numeric(table):
-    '''
-    takes tabulated data in string form
-    and converts to a numpy array
-    '''
-
-    if isinstance(table, np.ndarray):
-        numeric_table = table
-    elif isinstance(table, str):
-        #table is a str
-        numeric_table = []
-        for row in table.split('\n'):
-            if row.isspace() or row == "":
-                break
-            numeric_col = []
-            for col in row.split():
-                numeric_col.append(float(col))
-            numeric_table.append(numeric_col)
-        numeric_table = np.array(numeric_table)
-
-    else:
-        raise TypeError("table of type " +
-                        "{} cannot be parsed".format(type(table)))
-    if validate_table(numeric_table) is False:
-        numeric_table = fix_table(numeric_table)
-    return numeric_table
 
 def _check_table_shape(table, ncols, name):
     """
@@ -148,6 +99,8 @@ class Material():
         self.meta_data['FullName'] = ""
         self.meta_data['Author'] = ""
         self.meta_data['Alias'] = ""
+        self.meta_data['MetaComment'] = ""
+        self.meta_data['Specification'] = {}
         self._file_data = None
         self.data = {'name': "",
                      'real': None,
@@ -379,6 +332,7 @@ class Material():
             all paramters (i.e. coefficients) needed for the model
         """
         model_class = self._str_to_class(model_dict['name'])
+        #model_class = MODELS[model_dict['name']]
         kws = {}
         if "spectrum_type" in model_dict:
             kws['spectrum_type'] = model_dict['spectrum_type']
@@ -445,18 +399,19 @@ class Material():
         self.meta_data['Name'] = file_dict['MetaData']['Name']
         self.meta_data['FullName'] = file_dict['MetaData']['FullName']
         self.meta_data['Author'] = file_dict['MetaData']['Author']
-
+        self.meta_data['MetaComment'] = file_dict['MetaData']['MetaComment']
+        self.meta_data['Specification'] = file_dict['MetaData']['Specification']
         datasets = file_dict['Datasets']
         #self.dataTypes = []
         #self.dataSets = []
         for dataset in datasets:
-            data_type, identifier = dataset['MetaData']['DataType'].split()
-            meta_data = dataset['MetaData']
+            data_type, identifier = dataset['DataType'].split()
+            #meta_data = dataset['MetaData']
             if data_type == 'tabulated':
                 #data is tabulated
-                dataset['Data'] = _str_table_to_numeric(dataset['Data'])
+                dataset['Data'] = _str_table_to_numeric(dataset.pop('Data'))
                 self._process_table(dataset['Data'], identifier,
-                                    meta_data=meta_data)
+                                    meta_data=dataset)
             elif data_type in {'formula', 'model'}:
                 #data is a formula with coefficients
                 self._process_formula_data(dataset)
@@ -529,10 +484,11 @@ class Material():
         in input dictionary to return a SpectralData.Model
         '''
         model_dict = {}
-        meta_data = data_dict['MetaData']
+        meta_data = data_dict
         data_type, identifier = meta_data['DataType'].split()
-        if not (data_type in {'formula', 'mode'}):
-            raise ValueError("dataType <{}> not a valid formula or model")
+        if not (data_type in {'formula', 'model'}):
+            raise ValueError("dataType <{}>".format(data_type) +
+                             " not a valid formula or model")
         if data_type == 'formula':
             identifier = int(identifier)
 
@@ -683,16 +639,21 @@ class Material():
                                " a valid n/k or permittivity spectrum")
 
         if self.data['complex'] is None:
-            real_lower = np.min(self.data['real'].valid_range.values)
-            real_upper = np.max(self.data['real'].valid_range.values)
-            imag_lower = np.min(self.data['imag'].valid_range.values)
-            imag_upper = np.max(self.data['imag'].valid_range.values)
+            real_range_std = self.data['real'].valid_range.standard_rep
+            imag_range_std = self.data['imag'].valid_range.standard_rep
+            real_lower = np.min(real_range_std)
+            real_upper = np.max(real_range_std)
+            imag_lower = np.min(imag_range_std)
+            imag_upper = np.max(imag_range_std)
             lower = np.max([real_lower, imag_lower])
             upper = np.min([real_upper, imag_upper])
         else:
             lower = np.min(self.data['complex'].valid_range.values)
             upper = np.max(self.data['complex'].valid_range.values)
-        return np.array([lower, upper])
+        max_range = np.array([lower, upper])
+        spec = Spectrum(max_range)
+        return spec.convert_to(self.defaults['spectrum_type'],
+                               self.defaults['unit'])
 
     @staticmethod
     def utf8_to_ascii(string):
@@ -801,6 +762,114 @@ class Material():
                                 spectrum_type=self.defaults['spectrum_type'],
                                 unit=self.defaults['unit'])
         return spectrum
+
+    def prepare_file_dict(self):
+        #if self._file_data is not None:
+        #    return self._file_data
+        file_dict = {}
+        file_dict['MetaData'] = {}
+        #file_dict[]
+        for key in self.meta_data:
+            if key == "Alias":
+                continue
+            file_dict['MetaData'][key] = self.meta_data[key]
+        file_dict['Datasets'] = self.dataset_to_dict()
+        return file_dict
+
+    def add_dtype_suffix(self, dtype, data_part):
+        if self.data['name'] == 'nk':
+            if data_part == 'real':
+                dtype += " n"
+            elif data_part == 'imag':
+                dtype += " k"
+            elif data_part == 'complex':
+                dtype += ' nk'
+        elif self.data['name'] == 'eps':
+            if data_part == 'real':
+                dtype += " eps_r"
+            elif data_part == 'imag':
+                dtype += ' eps_k'
+            elif data_part == 'complex':
+                dtype += ' eps'
+        else:
+            raise ValueError("data name could not be parsed")
+        return dtype
+
+
+    def dataset_to_dict(self):
+        """
+        generate a file_data type dictionary from this object
+
+        Parameters
+        ----------
+
+        material_data: dict
+            keys: name, real, imag, complex
+
+        Returns
+        -------
+        dict
+            a list of dicts that has a format suitable for writing to file
+        """
+        datasets = []
+        if self.data['complex'] is None:
+            data_parts = ['real', 'imag']
+        else:
+            data_parts = 'complex'
+
+
+        for data_part in data_parts:
+            spec_data = self.data[data_part]
+            data_dict = spec_data.dict_repr()
+            if isinstance(spec_data, (Constant, Interpolation)):
+                dtype = data_dict['DataType']
+                dtype = self.add_dtype_suffix(dtype, data_part)
+                data_dict['DataType'] = dtype
+
+            datasets.append(data_dict)
+        datasets = self.collapse_datasets(datasets)
+        return datasets
+
+    def collapse_datasets(self, datasets):
+        n_collapsable = 0
+        for dataset in datasets:
+            if dataset['DataType'] == 'tabulated n':
+                n_data = _str_table_to_numeric(dataset['Data'])
+                n_collapsable += 1
+            if dataset['DataType'] == 'tabulated k':
+                k_data = _str_table_to_numeric(dataset['Data'])
+                n_collapsable += 1
+
+        if n_collapsable < 2:
+            return datasets
+
+        collapse = True
+        if not np.all(n_data[:, 0] == k_data[:, 0]):
+            collapse = False
+
+        if datasets[0]['Unit'] != datasets[1]['Unit']:
+            collapse = False
+
+        if datasets[0]['SpectrumType'] != datasets[1]['SpectrumType']:
+            collapse = False
+
+        if not collapse:
+            return datasets
+
+        new_dataset = {}
+        new_dataset['Unit'] = datasets[0]['Unit']
+        new_dataset['SpectrumType'] = datasets[0]['SpectrumType']
+        new_dataset['DataType'] = 'tabulated nk'
+        k_data = k_data[:, 1].reshape(k_data.shape[0], 1)
+        new_data = np.concatenate([n_data, k_data], axis=1)
+        new_dataset['Data'] = _numeric_to_string_table(new_data)
+        return [new_dataset]
+
+
+
+
+
+
 
 if __name__ == "__main__":
     pass

@@ -43,10 +43,11 @@ Notes
 -----
 for more information on models see https://refractiveindex.info/about
 """
-
+import re
 import numpy as np
 from scipy.interpolate import interp1d, splrep, splev
 from dispersion.spectrum import Spectrum
+from dispersion.io import _numeric_to_string_table
 
 
 class SpectralData():
@@ -96,6 +97,18 @@ class Constant(SpectralData):
         if isinstance(spectrum.values, (list, tuple, np.ndarray)):
             return self.constant * np.ones(len(spectrum.values))
         return self.constant
+
+    def dict_repr(self):
+        """
+        return a dictionary representation of the object
+        """
+        data = {}
+        data['DataType'] = "constant"
+        data['ValidRange'] = _numeric_to_string_table(self.valid_range.values)
+        data['SpectrumType'] = self.spectrum_type
+        data['Unit'] = self.unit
+        data['Value'] = self.constant
+        return data
 
 class Extrapolation(SpectralData):
     """
@@ -207,6 +220,18 @@ class Interpolation(SpectralData):
         values = spectrum.convert_to(self.spectrum_type, self.unit)
         return self.interpolation(values)
 
+    def dict_repr(self):
+        """
+        return a dictionary representation of the object
+        """
+        data = {}
+        data['DataType'] = "tabulated"
+        data['ValidRange'] = _numeric_to_string_table(self.valid_range.values)
+        data['SpectrumType'] = self.spectrum_type
+        data['Unit'] = self.unit
+        data['Data'] = _numeric_to_string_table(self.data)
+        return data
+
 class Model(SpectralData):
     """for spectral data values depending on model parameters"""
 
@@ -216,9 +241,11 @@ class Model(SpectralData):
         super(Model, self).__init__(valid_range,
                                     spectrum_type=spectrum_type,
                                     unit=unit)
-        self.required_spectrum_type = None # set in input_output
-        self.required_unit = None # set in input_output
-        self.input_output()
+        self.required_spectrum_type = None # set in subclass
+        self.required_unit = None # set in subclass
+        self.output = None # set in subclass
+
+    def validate_spectrum_type(self):
         tmp_spectrum = Spectrum(1.0,
                                 spectrum_type=self.spectrum_type,
                                 unit=self.unit)
@@ -232,6 +259,19 @@ class Model(SpectralData):
             raise ValueError("unit for model " +
                              "<{}> must".format(type(self).__name__) +
                              "be {}".format(self.required_unit))
+
+    def dict_repr(self):
+        """
+        return a dictionary representation of the object
+        """
+        data = {}
+        data['DataType'] = "model " + type(self).__name__
+        data['ValidRange'] = _numeric_to_string_table(self.valid_range.values)
+        data['SpectrumType'] = self.spectrum_type
+        data['Unit'] = self.unit
+        data['Yields'] = self.output
+        data['Parameters'] = _numeric_to_string_table(self.model_parameters)
+        return data
 
     def input_output(self):
         """defines the required inputs and the output spectrum type"""
@@ -264,12 +304,15 @@ class Sellmeier(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Sellmeier, self).__init__(model_parameters, valid_range,
+                                        spectrum_type=spectrum_type,
+                                        unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
-
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -289,11 +332,15 @@ class Sellmeier2(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Sellmeier2, self).__init__(model_parameters, valid_range,
+                                         spectrum_type=spectrum_type,
+                                         unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -313,11 +360,15 @@ class Polynomial(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Polynomial, self).__init__(model_parameters, valid_range,
+                                         spectrum_type=spectrum_type,
+                                         unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -337,11 +388,15 @@ class RefractiveIndexInfo(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(RefractiveIndexInfo, self).__init__(model_parameters, valid_range,
+                                                  spectrum_type=spectrum_type,
+                                                  unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -370,11 +425,15 @@ class Cauchy(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Cauchy, self).__init__(model_parameters, valid_range,
+                                     spectrum_type=spectrum_type,
+                                     unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -393,11 +452,15 @@ class Gases(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Gases, self).__init__(model_parameters, valid_range,
+                                    spectrum_type=spectrum_type,
+                                    unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -417,11 +480,15 @@ class Herzberger(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Herzberger, self).__init__(model_parameters, valid_range,
+                                         spectrum_type=spectrum_type,
+                                         unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -443,11 +510,15 @@ class Retro(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Retro, self).__init__(model_parameters, valid_range,
+                                    spectrum_type=spectrum_type,
+                                    unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -469,11 +540,15 @@ class Exotic(Model):
     requires wavelength input in micrometers
     returns real part of refractive index only
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Exotic, self).__init__(model_parameters, valid_range,
+                                     spectrum_type=spectrum_type,
+                                     unit=unit)
         self.required_spectrum_type = 'wavelength'
         self.required_unit = 'um'
         self.output = 'n'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -494,11 +569,15 @@ class Drude(Model):
     requires energy input in eV
     returns real and imaginary parts of permittivity
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(Drude, self).__init__(model_parameters, valid_range,
+                                    spectrum_type=spectrum_type,
+                                    unit=unit)
         self.required_spectrum_type = 'energy'
         self.required_unit = 'ev'
         self.output = 'eps'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""
@@ -513,11 +592,15 @@ class DrudeLorentz(Model):
     requires energy input in eV
     returns real and imaginary parts of permittivity
     '''
-    def input_output(self):
-        """defines the required inputs and the output spectrum type"""
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(DrudeLorentz, self).__init__(model_parameters, valid_range,
+                                           spectrum_type=spectrum_type,
+                                           unit=unit)
         self.required_spectrum_type = 'energy'
         self.required_unit = 'ev'
         self.output = 'eps'
+        self.validate_spectrum_type()
 
     def evaluate(self, spectrum):
         """returns the value of the spectral data for the given spectrum"""

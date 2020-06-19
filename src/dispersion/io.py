@@ -5,6 +5,12 @@ implements a reader and writer object for interfacing with material data files.
 
 Functions
 ---------
+validate_table
+    checks that tabulated data can be interpolated
+fix_table
+    removes rows of table which stop interpolation from happening
+_str_table_to_numeric
+    convert a string table to a numpy array
 read_yaml_file
     convert a file with yaml format to dict
 read_yaml_string
@@ -25,18 +31,93 @@ import os
 import sys
 import codecs
 import warnings
-import numpy as np
+import re
 from collections import OrderedDict
-
+import numpy as np
 USE_RUAMEL = True
 try:
     from ruamel.yaml import YAML
+    from ruamel.yaml import scalarstring
+    from ruamel.yaml.comments import CommentedMap
 except ModuleNotFoundError as exc:
     warnings.warn("preferred yaml package ruamel.yaml not installed, falling" +
                   " back to PyYAML, writing yaml files may give inconsistent" +
                   " round trip results")
     USE_RUAMEL = False
     import yaml
+#from dispersion.material import _str_table_to_numeric
+#USE_RUAMEL = False
+#import yaml
+
+def multi_key(dict_obj, key_set):
+    for key in key_set:
+        if key in dict_obj:
+            return dict_obj[key]
+    else:
+        raise KeyError("None of the keys {}".format(key_set) +
+                       " were present")
+
+def _numeric_to_string_table(table):
+    """
+    returns a string representation of a numpy array
+    """
+    string_array = np.array2string(table)
+    no_brackets = re.sub(r'[\[\]]', '', string_array)
+    no_indent = re.sub(r'\n ', r"\n", no_brackets)
+    no_indent = no_indent.rstrip().lstrip()
+    return no_indent
+
+def _str_table_to_numeric(table):
+    '''
+    takes tabulated data in string form
+    and converts to a numpy array
+    '''
+
+    if isinstance(table, np.ndarray):
+        numeric_table = table
+    elif isinstance(table, str):
+        #table is a str
+        numeric_table = []
+        for row in table.split('\n'):
+            if row.isspace() or row == "":
+                break
+            numeric_col = []
+            for col in row.split():
+                numeric_col.append(float(col))
+            numeric_table.append(numeric_col)
+        numeric_table = np.array(numeric_table)
+
+    else:
+        raise TypeError("table of type " +
+                        "{} cannot be parsed".format(type(table)))
+    if validate_table(numeric_table) is False:
+        numeric_table = fix_table(numeric_table)
+    return numeric_table
+
+
+
+def validate_table(tabulated_data):
+    '''
+    check that spectral part (first column) is
+    monotonically increasing to be able to interpolate
+    '''
+    return np.all(tabulated_data[1:, 0] > tabulated_data[:-1, 0])
+
+
+def fix_table(tabulated_data):
+    '''
+    throw out rows which break strict monotonicity
+    '''
+    n_cols = tabulated_data.shape[1]
+    new_rows = [tabulated_data[0, :]]
+    last_valid = tabulated_data[0, 0]
+    for row in range(1, tabulated_data.shape[0]):
+        if not tabulated_data[row, 0] > last_valid:
+            continue
+        else:
+            new_rows.append(tabulated_data[row, :])
+            last_valid = tabulated_data[row, 0]
+    return np.array(new_rows).reshape(-1, n_cols)
 
 def read_yaml_file(file_path):
     """opens yaml file and returns contents as a dict like.
@@ -61,7 +142,10 @@ def read_yaml_file(file_path):
             yaml_obj = YAML()
             yaml_data = yaml_obj.load(fpt)
         else:
-            yaml_data = yaml.load(fpt)
+            try:
+                yaml_data = yaml.load(stream, Loader=yaml.FullLoader)
+            except:
+                yaml_data = yaml.safe_load(fpt)
     return yaml_data
 
 def read_yaml_string(string_data):
@@ -103,9 +187,11 @@ def write_yaml_file(file_path, dict_like):
     dict_like: dict or OrderedDict
         the data to be written to file
     """
-    with open(file_path, 'w') as fpt:
+    with open(file_path, 'w', encoding='utf8') as fpt:
         if USE_RUAMEL:
             yaml_obj = YAML()
+            yaml_obj.indent(mapping=4, sequence=4, offset=2)
+            scalarstring.walk_tree(dict_like)
             yaml_obj.dump(dict_like, fpt)
         else:
             yaml.dump(dict_like, fpt)
@@ -123,6 +209,24 @@ def print_yaml_string(dict_like):
         yaml_obj.dump(dict_like, sys.stdout)
     else:
         print(yaml.dump(dict_like))
+
+def prepend_text_to_file(file_path, text, extra_line=False):
+    """
+    read information from a file and rewrite with text prepended
+    """
+    with open(file_path, 'r', encoding='utf8') as fpt:
+        current_text = fpt.read()
+
+    with open(file_path, 'w', encoding='utf8') as fpt:
+        text = text.rstrip('\n\r')
+        text = text.replace("\n", "\n#")
+        text = "#" + text
+        text += "\n"
+        if extra_line:
+            text += "\n"
+        fpt.write(text)
+        fpt.write(current_text)
+
 
 class Reader():
     """interface for reading refractive index data from file.
@@ -143,10 +247,11 @@ class Reader():
     """
 
     FILE_META_DATA_KEYS = {"Comment", "Reference", "Author",
-                           "Name", "FullName"}
+                           "Name", "FullName", "MetaComment"}
 
     DATASET_META_DATA_KEYS = {'ValidRange', 'DataType',
-                              'SpectrumType', 'Unit'}
+                              'SpectrumType', 'Unit',
+                              'Yields'}
 
     def __init__(self, file_path):
         self.file_path = file_path
@@ -160,17 +265,17 @@ class Reader():
         for mdk in Reader.FILE_META_DATA_KEYS:
             file_dict['MetaData'][mdk] = ""
         file_dict['Datasets'] = [Reader._create_default_data_dict()]
-        file_dict['Specification'] = {}
-        file_dict['MetaComment'] = ""
+        file_dict['MetaData']['Specification'] = {}
+        #file_dict['MetaComment'] = ""
         file_dict['FilePath'] = self.file_path
         return file_dict
 
     @staticmethod
     def _create_default_data_dict():
         """default values for a data set."""
-        dataset_dict = {'MetaData': {}}
+        dataset_dict = {}
         for mdk in Reader.DATASET_META_DATA_KEYS:
-            dataset_dict['MetaData'][mdk] = ""
+            dataset_dict[mdk] = ""
         dataset_dict['Data'] = []
         return dataset_dict
 
@@ -204,7 +309,6 @@ class Reader():
         except IOError as exc:
             raise exc
         data_dict = self._create_default_data_dict()
-        data_dict['MetaData']['DataType'] = 'tabulated nk'
         data_dict['Data'] = data
         return data_dict
 
@@ -238,20 +342,23 @@ class Reader():
         for line in comment:
             kwd_arg = line.split(":")
             if len(kwd_arg) == 1:
-                multi_line_comment += line
+                multi_line_comment += line + "\n"
             elif len(kwd_arg) == 2:
-                kwd = kwd_arg[0].upper()
+                kwd = kwd_arg[0].upper().lstrip()
                 arg = kwd_arg[1].rstrip("\n\r").lstrip()
                 valid = False
                 for key in Reader.FILE_META_DATA_KEYS:
                     if kwd.startswith(key.upper()):
-                        file_dict['MetaData'][key] = arg
+                        if key == 'Specification':
+                            file_dict['MetaData'][key] = str(arg)
+                        else:
+                            file_dict['MetaData'][key] = arg
                         valid = True
                         break
                 if valid is False:
                     for key in Reader.DATASET_META_DATA_KEYS:
                         if kwd.startswith(key.upper()):
-                            file_dict['Datasets'][0]['MetaData'][key] = arg
+                            file_dict['Datasets'][0][key] = arg
                             valid = True
                             break
                 if valid is False:
@@ -261,7 +368,14 @@ class Reader():
                 raise RuntimeError(" string \":\" may only appear" +
                                    "once per line in comment header")
         if multi_line_comment != "":
-            file_dict['MetaComment'] = multi_line_comment
+            file_dict['MetaData']['MetaComment'] = multi_line_comment
+        dataset = file_dict['Datasets'][0]
+
+        if dataset['DataType'] == "":
+            if dataset['Data'].shape[1] == 3:
+                dataset['DataType'] = 'tabulated nk'
+            elif dataset['Data'].shape[1] == 2:
+                dataset['DataType'] = 'tabulated n'
         return file_dict
 
     def _read_yaml_mat_file(self):
@@ -274,7 +388,9 @@ class Reader():
 
         file_dict = dict(self.default_file_dict)
         file_dict = self._process_mat_dict(file_dict, yaml_data)
-        file_dict['MetaComment'] = self._read_text_comment()
+        mcomment = "\n".join(self._read_text_comment())
+        mcomment = mcomment[:-1]
+        file_dict['MetaData']['MetaComment'] = mcomment
         return file_dict
 
     def _process_mat_dict(self, file_dict, yaml_dict):
@@ -302,7 +418,7 @@ class Reader():
                 file_dict['Datasets'] = self._process_mat_data_dict(arg)
             elif kwd == 'SPECS':
                 valid = True
-                file_dict['Specification'] = arg
+                file_dict['MetaData']['Specification'] = arg
             if valid is False:
                 for key in Reader.FILE_META_DATA_KEYS:
                     if kwd.startswith(key.upper()):
@@ -328,18 +444,28 @@ class Reader():
             formated data for use in this package
         """
         aliases = {'ValidRange': {'validRange', 'range',
-                                  'spectra_range', 'wavelength_range'}}
+                                  'spectra_range', 'wavelength_range'},
+                   'DataType':'type'}
         dataset_list = []
         for n_data_set, dataset in enumerate(mat_data):
             dataset_list.append(Reader._create_default_data_dict())
             data_dict = dataset_list[-1]
-            data_type = dataset['type'].lstrip()
-            data_dict['MetaData']['DataType'] = data_type
+            try:
+                data_type = dataset['type'].lstrip()
+            except KeyError:
+                data_type = dataset['DataType'].lstrip()
+            data_dict['DataType'] = data_type
             if (data_type.startswith('formula') or
                     data_type.startswith('model')):
-                data_dict['Data'] = dataset['coefficients']
+                try:
+                    data_dict['Data'] = dataset['coefficients']
+                except KeyError:
+                    data_dict['Data'] = dataset['Parameters']
             elif data_type.startswith('tabulated'):
-                data_dict['Data'] = dataset['data']
+                try:
+                    data_dict['Data'] = dataset['data']
+                except KeyError:
+                    data_dict['Data'] = dataset['Data']
             else:
                 raise KeyError("data type <{}> invalid".format(data_type))
 
@@ -355,12 +481,13 @@ class Reader():
                     else:
                         all_names = {key}
                     for alias in all_names:
-                        if kwd.startswith(alias.upper()):
-                            data_dict['MetaData'][key] = arg
+                        if kwd == alias.upper():
+                            data_dict[key] = arg
                             valid = True
                             break
                 if valid is False:
                     KeyError("keyword <{}> in file invalid".format(kwd))
+
         return dataset_list
 
 
@@ -389,11 +516,30 @@ class Writer():
     metadata is written cannot be controlled.
     """
 
-    KEY_ALIASES = OrderedDict({"Comment": "COMMENTS",
-                               "Reference": "REFERENCES",
-                               "Specification": "SPECS",
-                               "ValidRange": "wavelength_range",
-                               "DataType": "type"})
+    KEY_ALIASES = {"Reference": "REFERENCES",
+                   "Author": "AUTHOR",
+                   "FullName": "FULLNAME",
+                   "Name": "NAME",
+                   "Comment": "COMMENTS",
+                   "Specification": "SPECS",
+                   "Datasets": "DATA"}
+
+    RII_ALIASES = {"ValidRange": "wavelength_range",
+                   "DataType": "type",
+                   "Parameters": "coefficients",
+                   "Data":"data",
+                   "Model:Sellmeier":"formula 1",
+                   "Model:Sellmeier2":"formula 2",
+                   "Model:Polynomial":"formula 3",
+                   "Model:RefractiveIndexInfo":"formula 4",
+                   "Model:Cauchy":"formula 5",
+                   "Model:Gases":"formula 6",
+                   "Model:Herzberger":"formula 7",
+                   "Model:Retro":"formula 8",
+                   "Model:Exotic":"formula 9"}
+
+    DATA_META_DATA_KEYS = ['Reference', 'Author',
+                           'FullName', 'Name', 'Comment']
 
     DATASET_META_DATA_KEYS = ['ValidRange', 'DataType',
                               'SpectrumType', 'Unit']
@@ -404,83 +550,151 @@ class Writer():
         self.extension = extension
         self.file_name = fname
         self.file_dict = material.prepare_file_dict()
+        self.ignore_constant = True
+        self.use_rii_aliases = False
 
-    def write_file(self):
+
+    def write_file(self, ignore_constant=True,
+                   use_rii_aliases=False):
         """
         write the data to the file_path
         """
-        raise NotImplementedError("writing material files not yet implemented")
+        self.ignore_constant = ignore_constant
+        self.use_rii_aliases = use_rii_aliases
+        meta_comment = self.file_dict['MetaData'].pop('MetaComment')
+        #raise NotImplementedError("writing material files not yet implemented")
         txt_types = {'.txt', '.csv'}
         if self.extension in txt_types:
-            return self._write_text_file()
+            self._write_text_file()
+            if not meta_comment == "":
+                prepend_text_to_file(self.file_path, meta_comment)
         elif self.extension == '.yml':
-            return self._write_yaml_file()
+            self._write_yaml_file()
+            if not meta_comment == "":
+                prepend_text_to_file(self.file_path, meta_comment,
+                                     extra_line=True)
         else:
             raise ValueError("extension" +
                              "{} not supported".format(self.extension) +
                              ", supported extensions are (.yml|.csv|.txt)")
+
 
     def _write_text_file(self):
         """
         writer for .txt and .csv files
         """
         header = ""
-        for item in Writer.KEY_ALIASES.items():
-            header += "#{}: {}".format(item[1], self.file_dict[item[0]])
-        #TODO finish function
+        for key in Writer.DATA_META_DATA_KEYS:
+            if key in self.file_dict['MetaData']:
+                alias = Writer.KEY_ALIASES[key]
+                header += "{}: {}\n".format(alias,
+                                            self.file_dict['MetaData'][key])
+
+
+        # for item in Writer.KEY_ALIASES.items():
+        #     if item[0] in self.file_dict:
+        #         header += "{}: {}\n".format(item[1], self.file_dict[item[0]])
+        if len(self.file_dict['Datasets']) < 1:
+            raise ValueError("no datasets present in the file dict")
+        data_dict = self.file_dict["Datasets"][0]
+
+        spec_type = multi_key(data_dict, {'spectrum_type', 'SpectrumType'})
+        header += "SPECTRUMTYPE: {}\n".format(spec_type)
+        unit = multi_key(data_dict, {'unit', 'Unit'})
+        header += "UNIT: {}\n".format(unit)
+        dtype = multi_key(data_dict, {'type', 'DataType'})
+        header += "DATATYPE: {}\n".format(dtype)
+        # dtype = multi_key(data_dict,{'type','DataType'})
+        # if dtype not in {'tabulated_nk', 'tabulated_n'}:
+        #     raise NotImplementedError("writing data to text file only"+
+        #                               "supported for tabulated_nk and"+
+        #                               "tabulted_n data.")
+
+        if self.extension == '.txt':
+            delimiter = "\t"
+        elif self.extension == '.csv':
+            delimiter = ","
+        data = multi_key(data_dict, {'data', 'Data'})
+        data = _str_table_to_numeric(data)
+        np.savetxt(self.file_path, data,
+                   delimiter=delimiter,
+                   header=header,
+                   fmt="%.8f")
+
 
     def _write_yaml_file(self):
         """
         writer for .yml files
         """
-        #TODO finish function
-        """
-        yamlDict = OrderedDict()
-        yamlOrder = ['REFERENCES', 'COMMENTS', 'DATA', 'SPECS']
 
-        for yamlKey in yamlOrder[:2]:
-            for key, val in self.file_dict['MetaData'].items():
-                if key in Writer.keyAliases:
-                    if Writer.keyAliases[key] == yamlKey:
-                        print(type(val))
-                        yamlDict[yamlKey] = val
+        pop_keys = []
+        for key in self.file_dict:
+            if self.file_dict[key] == "":
+                pop_keys.append(key)
+        for key in pop_keys:
+            self.file_dict.pop(key)
+        pop_dataset = []
 
-        yamlDict['DATA'] = []
         for ids, dataset in enumerate(self.file_dict['Datasets']):
-            yamlDataset = {}
-            metaData = dataset['MetaData']
-            for key, val in metaData.items():
-                if key in Writer.keyAliases:
-                    yamlDataset[Writer.keyAliases[key]] = val
-            yamlDict['DATA'].append(yamlDataset)
-            data_type = metaData['DataType'].split()[0]
-            if data_type == 'tabulated':
-                yamlDataset['data'] = dataset['Data']
-            elif data_type == 'formula':
-                yamlDataset['coefficients'] = dataset['Data']
-        print(yamlDict['REFERENCES'])
-        yamlDict['SPECS'] = OrderedDict()
+            if ("constant" in dataset['DataType'] and
+                    self.ignore_constant):
+                pop_dataset.append(ids)
+        for pop_id in pop_dataset:
+            self.file_dict['Datasets'].pop(pop_id)
+            # if isinstance(dataset['data'], np.ndarray):
+            #     string_array = np.array2string(dataset['data'])
+            #     no_brackets = re.sub(r'[\[\]]', '', string_array)
+            #     no_indent = re.sub(r'\n ', r"\n", no_brackets)
+            #     dataset['data'] = no_indent
+            #if isinstance(dataset['coefficients'], )
 
-        specOrder = ['n_absolute',
-                     'wavelength_vacuum',
-                     'film_thickness',
-                     'substrate',
-                     'temperature',
-                     'pressure',
-                     'deposition_temperature',
-                     'direction']
+        yaml_dict = {}
+        for key in self.file_dict['MetaData']:
+            if key in Writer.KEY_ALIASES:
+                md = self.file_dict['MetaData'][key]
+                yaml_dict[Writer.KEY_ALIASES[key]] = md
+            else:
+                yaml_dict[key] = md
 
-        for specKey in specOrder:
-            for key, val in self.file_dict['Specification'].items():
-                if specKey == key:
-                    yamlDict['SPECS'][specKey] = val
-        with codecs.open(self.file_path, 'w', 'utf-8') as fp:
-            for line in self.file_dict['MetaComment']:
-                fileLine = "#"+line+"\n"
-                fp.write(fileLine)
-            fp.write("\n")
-            yaml.dump(yamlDict, fp, encoding='utf-8', indent=4,
-                      allow_unicode=True,
-                      default_flow_style=False,
-                      sort_keys=False)
-      """
+        yaml_dict['DATA'] = self.file_dict['Datasets']
+
+
+        if self.use_rii_aliases:
+            yaml_datasets = []
+            for dataset in yaml_dict['DATA']:
+
+                yaml_dataset = {}
+                for key in dataset:
+                    if key in {"SpectrumType", "Unit", "Yields"}:
+                        continue
+                    value = dataset[key]
+                    if value in Writer.RII_ALIASES:
+                        value = Writer.RII_ALIASES[value]
+                    if key in Writer.RII_ALIASES:
+                        yaml_dataset[Writer.RII_ALIASES[key]] = value
+                    else:
+                        yaml_dataset[key] = value
+                yaml_datasets.append(yaml_dataset)
+            yaml_dict['DATA'] = yaml_datasets
+        specs = yaml_dict.pop('SPECS')
+
+        if len(specs) > 0:
+            spec_order = ['n_absolute',
+                          'wavelength_vacuum',
+                          'film_thickness',
+                          'substrate',
+                          'temperature',
+                          'pressure',
+                          'deposition_temperature',
+                          'direction']
+            if USE_RUAMEL:
+                yaml_spec = CommentedMap()
+            else:
+                yaml_spec = {}
+            for spec_key in spec_order:
+                for key, val in specs.items():
+                    if spec_key == key:
+                        yaml_spec[spec_key] = val
+            yaml_dict['SPECS'] = yaml_spec
+
+        write_yaml_file(self.file_path, yaml_dict)

@@ -37,9 +37,9 @@ def rebuild_catalogue():
         elif ans == 'y':
             valid_ans = True
 
-    mdb = Catalogue(rebuild='All')
+    cat = Catalogue(rebuild='All')
 
-    mdb.save_to_file()
+    cat.save_to_file()
 
 
 class Catalogue(object):
@@ -87,7 +87,7 @@ class Catalogue(object):
                  'N_Reference':np.double,
                  'K_Reference':np.double,
                  'Path':str,
-                 'Database':str}
+                 'Module':str}
     NA_VALUES = {'N_Reference':[""],
                  'K_Reference':[""]}
 
@@ -134,7 +134,7 @@ class Catalogue(object):
         for module, valid in config_modules.items():
             if valid:
                 print("Building {}".format(module))
-                if rebuild in {module, 'All'}:
+                if module in rebuild or rebuild == 'All':
                     db_path = module
                     dir_path = os.path.join(self.base_path, db_path)
                     read_function = all_modules[module]
@@ -395,7 +395,7 @@ class Catalogue(object):
             content_dict['Path'] = os.path.normpath(filename)
             try:
                 ref_index = mat.get_nk_data(self.reference_spectrum)
-            except ValueError:
+            except ValueError as valE:
                 ref_index = float('nan') + 1j* float('nan')
 
             content_dict['N_Reference'] = np.real(ref_index)
