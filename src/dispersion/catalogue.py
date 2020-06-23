@@ -52,7 +52,8 @@ class Catalogue(object):
     spectrally resolved refractive index or permittivity data into Material
     objects.
 
-    
+    Parameters
+    ----------
 
     config: dict or None
         configuration data
@@ -121,7 +122,7 @@ class Catalogue(object):
                 import qgrid
             except ModuleNotFoundError as exc:
                 raise Exception("Interactive mode requires the package" +
-                                'qgrid') from exc
+                                ' qgrid') from exc
             self.make_qgrid = qgrid.show_grid
 
     def build_catalogue(self, df, rebuild):

@@ -143,7 +143,7 @@ def read_yaml_file(file_path):
             yaml_data = yaml_obj.load(fpt)
         else:
             try:
-                yaml_data = yaml.load(stream, Loader=yaml.FullLoader)
+                yaml_data = yaml.load(fpt, Loader=yaml.FullLoader)
             except:
                 yaml_data = yaml.safe_load(fpt)
     return yaml_data
@@ -174,7 +174,10 @@ def read_yaml_string(string_data):
         yaml_obj = YAML()
         yaml_data = yaml_obj.load(string_data)
     else:
-        yaml_data = yaml.load(string_data)
+        try:
+            yaml_data = yaml.load(string_data, Loader=yaml.FullLoader)
+        except:
+            yaml_data = yaml.safe_load(string_data)
     return yaml_data
 
 def write_yaml_file(file_path, dict_like):

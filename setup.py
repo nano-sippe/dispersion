@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="dispersion", # Replace with your own username
-    version="0.1.0",
+    version="0.2.5",
     author="Phillip Manley",
     author_email="phillip.manley@helmholtz-berlin.de",
     description="support for libraries of optical dispersion (refractive index) data files",
@@ -19,15 +19,15 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=['numpy', 'matplotlib', 'pandas'],
+    install_requires=['numpy', 'matplotlib', 'pandas', 'scipy', 'PyYAML'],
     python_requires='>=3.6',
     include_package_data=True,
     entry_points={
         'console_scripts': ['dispersion_setup='+
-                            'dispersion.scripts'+
+                            'dispersion.scripts.'+
                             'setup_dispersion:main',
                             'dispersion_catalogue_rebuild='+
-                            'dispersion.scripts'+
+                            'dispersion.scripts.'+
                             'catalogue_rebuild:main',],
     }
 )
