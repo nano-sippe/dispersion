@@ -56,7 +56,7 @@ def default_config():
     yaml_str = """\
     Path: {}
     File: catalogue.csv
-    Interactive: true #for jupyter interfactive editing
+    Interactive: false #for jupyter interfactive editing
     Modules: # which databases to include
       UserData: true
       RefractiveIndexInfo: true
