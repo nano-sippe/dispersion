@@ -250,7 +250,7 @@ class Catalogue(object):
         else:
             raise ValueError("identifier must be of type str or int")
         file_path = os.path.normpath(os.path.join(self.base_path,
-                                                  row.Database,
+                                                  row.Module,
                                                   row.Path.replace('\\', '/')))
         mat = Material(file_path=file_path,
                            spectrum_type=row.SpectrumType,

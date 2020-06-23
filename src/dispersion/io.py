@@ -302,10 +302,18 @@ class Reader():
         fname, ext = os.path.splitext(self.file_path)
         try:
             if ext == '.txt':
-                data = np.loadtxt(self.file_path, encoding='utf-8')
+                try:
+                    data = np.loadtxt(self.file_path, encoding='utf-8')
+                except TypeError:
+                    with open(self.file_path, encoding = 'utf-8') as fpt:
+                        data = np.loadtxt(fpt)
             elif ext == '.csv':
-                data = np.loadtxt(self.file_path, encoding='utf-8',
-                                  delimiter=',')
+                try:
+                    data = np.loadtxt(self.file_path, encoding='utf-8',
+                                      delimiter=',')
+                except TypeError:
+                    with open(self.file_path, encoding = 'utf-8') as fpt:
+                        data = np.loadtxt(fpt,delimiter=',')
         except IOError as exc:
             raise exc
         data_dict = self._create_default_data_dict()
