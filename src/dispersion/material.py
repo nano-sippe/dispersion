@@ -36,6 +36,8 @@ from dispersion.io import (Reader, _numeric_to_string_table,
 
 
 
+
+
 def _check_table_shape(table, ncols, name):
     """
     check that numpy array shape has the correct number of columns
@@ -868,6 +870,80 @@ class Material():
         new_data = np.concatenate([n_data, k_data], axis=1)
         new_dataset['Data'] = _numeric_to_string_table(new_data)
         return [new_dataset]
+
+class EffectiveMedium(Material):
+
+    def __init__(self, spectrum, material1, material2, filling_fraction):
+        self.data = {'name': "",
+                     'real': None,
+                     'imag': None,
+                     'complex':None}
+        self.options = {'interp_oder':1}
+        self.defaults = {'unit':'m',
+                         'spectrum_type':'wavelength'}
+        self.spectrum = spectrum
+        self.mat1 = material1
+        self.mat2 = material2
+        self.frac = filling_fraction
+        if self.frac < 0. or self.frac > 1.0:
+            raise ValueError("filling fraction must be between "+
+                             "0. and 1.")
+
+        self.create_effective_data()
+
+    def create_effective_data(self):
+        """
+        this must be implemented in a subclass
+        """
+        raise NotImplementedError("create_effective_data must be defined" +
+                                  " in a subclass")
+
+class MaxwellGarnett(EffectiveMedium):
+
+    def create_effective_data(self):
+        #def get_maxwell_garnet(eps_base, eps_incl, vol_incl):
+        small_number_cutoff = 1e-6
+        print(self.frac)
+        eps_base = self.mat1.get_permittivity(self.spectrum)
+        eps_incl = self.mat2.get_permittivity(self.spectrum)
+        factor_up = 2*(1-self.frac)*eps_base+(1+2*self.frac)*eps_incl
+        factor_down = (2+self.frac)*eps_base+(1-self.frac)*eps_incl
+        if np.any(abs(factor_down)) < small_number_cutoff:
+            raise ValueError('effective medium is approximately singular')
+        eps_eff = eps_base*factor_up/factor_down
+        self.spectrum.convert_to("wavelength", 'm', in_place=True)
+        table = np.concatenate([[self.spectrum.values],
+                                [np.real(eps_eff)],
+                                [np.imag(eps_eff)]]).T
+        self._process_table(table, "eps")
+
+class Bruggeman(EffectiveMedium):
+
+    def create_effective_data(self):
+        eps_b = self.mat1.get_permittivity(self.spectrum)
+        eps_a = self.mat2.get_permittivity(self.spectrum)
+        solution1 = self._get_bruggeman_solution1(eps_b, eps_a)
+        solution2 = self._get_bruggeman_solution2(eps_b, eps_a)
+        indices1 = np.imag(solution1) > 0.0
+        indices2 = np.imag(solution2) > 0.0
+        eps_eff = np.zeros(eps_b.shape, dtype=np.cdouble)
+        eps_eff[indices1] = solution1[indices1]
+        eps_eff[indices2] = solution2[indices2]
+        self.spectrum.convert_to("wavelength", 'm', in_place=True)
+        table = np.concatenate([[self.spectrum.values],
+                                [np.real(eps_eff)],
+                                [np.imag(eps_eff)]]).T
+        self._process_table(table, "eps")
+
+    def _get_bruggeman_solution1(self, eps_b, eps_a):
+        q = -0.5*eps_a*eps_b
+        p = 0.5*(self.frac*(eps_b-2*eps_a) + (1-self.frac)*(eps_a-2*eps_b) )
+        return -p*0.5  + np.sqrt((0.5*p)**2 - q)
+
+    def _get_bruggeman_solution2(self, eps_b, eps_a):
+        q = -0.5*eps_a*eps_b
+        p = 0.5*(self.frac*(eps_b-2*eps_a) + (1-self.frac)*(eps_a-2*eps_b) )
+        return -p*0.5  - np.sqrt((0.5*p)**2 - q)
 
 
 
