@@ -303,6 +303,8 @@ class Spectrum(object):
         converted_values = convert_methods[spectrum_type](unit, values)
         if in_place:
             self.values = converted_values
+            self.spectrum_type = spectrum_type
+            self.unit = unit
             return None
         else:
             return converted_values

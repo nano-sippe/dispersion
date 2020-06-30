@@ -606,9 +606,10 @@ class DrudeLorentz(Model):
         """returns the value of the spectral data for the given spectrum"""
         [ones, energies] = self.preprocess(spectrum)
         omega_p = self.model_parameters[0] # plasma frequency in eV
-        w_res = self.model_parameters[1] # frequency of Lorentz pole in eV
-        loss = self.model_parameters[2] # loss in eV
-        return ones - omega_p**2/((np.power(energies, 2)-w_res**2)+1j*loss*energies)
+        pol_str = self.model_parameters[1] # pole strength (0.<#<1.)
+        w_res = self.model_parameters[2] # frequency of Lorentz pole in eV
+        loss = self.model_parameters[3] # loss in eV
+        return ones +  np.conj(pol_str*omega_p**2/((w_res**2-np.power(energies, 2))+1j*loss*energies))
 
 
 class Fano(Model):
