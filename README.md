@@ -4,6 +4,7 @@ The **dispersion** Python package provides a way of loading and evaluating files
 containing the dispersion of the refractive index of materials.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![DOI](https://zenodo.org/badge/238195637.svg)](https://zenodo.org/badge/latestdoi/238195637)
 
 Read the full documentation at https://dispersion.readthedocs.io/en/latest/index.html
 
