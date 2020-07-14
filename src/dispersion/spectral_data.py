@@ -12,7 +12,7 @@ SpectralData
     abstract base class
 Constant: SpectralData
     for values that are independent of the spectrum
-Interplation: SpectralData
+Interpolation: SpectralData
     for tabulated data values
 Model: SpectralData
     abstract base class for values generated from a particular model
@@ -298,7 +298,7 @@ class Model(SpectralData):
             ones = np.ones(new_spectrum.shape)
         else:
             ones = 1.0
-        
+
         return ones, new_spectrum
 
 class Sellmeier(Model):
@@ -662,7 +662,7 @@ class TaucLorentz(Model):
 
         part1 = (0.5*(A*C*alpha_ln/(np.pi*zeta4*alpha*E0)) *
                  np.log( (E0**2+Eg**2+alpha*Eg)/(E0**2+Eg**2-alpha*Eg)))
-                 
+
         part2 = ((-1*A*alpha_atan/(np.pi*zeta4*E0)) *
                  (np.pi - np.arctan( (2*Eg+alpha)/C) +
                   np.arctan( (-2*Eg+alpha)/C)))
@@ -684,11 +684,11 @@ class TaucLorentz(Model):
 
         part5 = ((2.*A*E0*C*Eg/(np.pi*zeta4)) *
                  np.log( (np.abs(E-Eg)*(E+Eg))/
-                         np.sqrt((E0**2-Eg**2)**2+Eg**2*C**2)))        
-        
+                         np.sqrt((E0**2-Eg**2)**2+Eg**2*C**2)))
+
         eps_real = eps_inf + part1 + part2 + part3 + part4 +part5
         return eps_real
-                      
+
 
 
 class Fano(Model):
