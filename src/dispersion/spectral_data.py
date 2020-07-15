@@ -696,7 +696,7 @@ class Fano(Model):
     '''
     this model can be applied to scattering cross sections
     requires energy input in eV
-    returns real and imaginary parts of permittivity
+    returns real and imaginary parts of scattering cross section
     '''
     def input_output(self):
         """defines the required inputs and the output spectrum type"""
