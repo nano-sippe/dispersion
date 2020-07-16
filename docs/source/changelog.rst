@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+- 0.1.0.beta3
+
+  - automatic github integration with pypi database.
+
 - 0.1.0.beta2
 
   - numerous typos fixed
