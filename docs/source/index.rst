@@ -57,6 +57,7 @@ Contents
    configuration
    modules
    file_format
+   changelog
 
 
 * :ref:`genindex`
