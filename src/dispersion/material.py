@@ -679,19 +679,19 @@ class Material():
 
     def plot_nk_data(self, **kwargs):
         """plots the real and imaginary part of the refractive index"""
-        raise NotImplementedError("plotting disabled to remove" +
-                                  "matplotlib dependence")
         self._plot_data('nk', **kwargs)
 
     def plot_permittivity(self, **kwargs):
         """plots the real and imaginary part of the permittivity"""
-        raise NotImplementedError("plotting disabled to remove" +
-                                  "matplotlib dependence")
         self._plot_data('permittivity', **kwargs)
 
     def _plot_data(self, data_label, **kwargs):
         """internal function used for plotting spectral data"""
-        import matplotlib.pyplot as plt
+        try:
+            import matplotlib.pyplot as plt
+        except ModuleNotFoundError as exp:
+            raise ModuleNotFoundError("plotting requires the matplotlib",
+                                      " package to be installed")
 
         plot_data = self._prepare_plot_data(**kwargs)
         if 'axes' not in kwargs:
