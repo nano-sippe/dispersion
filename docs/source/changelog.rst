@@ -1,9 +1,13 @@
 Change Log
 ==========
 
+- 0.1.0.beta4
+
+  - automatic github integration with pypi database. 
+
 - 0.1.0.beta3
 
-  - automatic github integration with pypi database.
+  - automatic github integration with test pypi database.
 
 - 0.1.0.beta2
 
