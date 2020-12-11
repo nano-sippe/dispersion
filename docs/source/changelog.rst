@@ -1,9 +1,16 @@
 Change Log
 ==========
 
+- 0.1.0.beta5
+
+  - order of elements no longer reversed when inverting spectrum
+
+  - Bruggeman effective medium model should provide physical solutions for
+    non-absorbing media.
+
 - 0.1.0.beta4
 
-  - automatic github integration with pypi database. 
+  - automatic github integration with pypi database.
 
 - 0.1.0.beta3
 
