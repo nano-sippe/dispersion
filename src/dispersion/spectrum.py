@@ -30,7 +30,6 @@ def safe_inverse_array(values):
     inverse[zero_ind] = np.inf
     inverse[inf_ind] = 0.0
     inverse[safe_inv_ind] = 1.0/values[safe_inv_ind]
-    inverse = inverse[::-1]
     return inverse
 
 def safe_inverse_scalar(value):
