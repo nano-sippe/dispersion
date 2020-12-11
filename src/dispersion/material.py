@@ -924,11 +924,13 @@ class Bruggeman(EffectiveMedium):
         eps_a = self.mat2.get_permittivity(self.spectrum)
         solution1 = self._get_bruggeman_solution1(eps_b, eps_a)
         solution2 = self._get_bruggeman_solution2(eps_b, eps_a)
-        indices1 = np.imag(solution1) > 0.0
-        indices2 = np.imag(solution2) > 0.0
+        self.sol1 = solution1
+        self.sol2 = solution2
+        indices1 = np.imag(solution1) >= 0.0
+        indices2 = np.imag(solution2) >= 0.0
         eps_eff = np.zeros(eps_b.shape, dtype=np.cdouble)
-        eps_eff[indices1] = solution1[indices1]
         eps_eff[indices2] = solution2[indices2]
+        eps_eff[indices1] = solution1[indices1]
         self.spectrum.convert_to("wavelength", 'm', in_place=True)
         table = np.concatenate([[self.spectrum.values],
                                 [np.real(eps_eff)],
