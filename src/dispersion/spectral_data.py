@@ -150,11 +150,11 @@ class Extrapolation(SpectralData):
                 raise ValueError("extrapolation spectrum may contain at most" +
                                  "2 values not {}".format(extrap_values.size))
             for extrap_val in extrap_values:
-                new_range = self.validate_extrap_val(extrap_val,new_range)
+                new_range = self.validate_extrap_val(extrap_val, new_range)
         else:
             # upper or lower
             extrap_val = extended_spectrum.values
-            new_range = self.validate_extrap_val(extrap_val,new_range)
+            new_range = self.validate_extrap_val(extrap_val, new_range)
 
         return Spectrum(new_range,
                         spectrum_type= base_spectrum.spectrum_type,
