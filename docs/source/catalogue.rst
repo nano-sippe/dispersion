@@ -90,7 +90,15 @@ to the file on the inside the module folder as the filter,
     cat.save_to_file()
 
 or use the interactive editing. For this the qgrid IPython extension needs to be
-installed. After installation, open the catalogue in an IPython like environment
+installed. Note that after installing the package with a package manager,
+iPython extensions need to be installed using,
+
+::
+
+    jupyter nbextension enable --py --sys-prefix widgetsnbextension
+    jupyter nbextension enable --py --sys-prefix qgrid    
+
+After installation, open the catalogue in an IPython like environment
 (such as a Jupyter notebook) and use,
 
 ::

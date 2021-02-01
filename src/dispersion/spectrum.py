@@ -119,7 +119,7 @@ def to_energy(unit, values):
         raise NotImplementedError("support for energy units " +
                                   " other than eV not implemented")
     inverse = safe_inverse(values)
-    return (constants.h*constants.c/(constants.e))*inverse
+    return np.round((constants.h*constants.c/(constants.e))*inverse, decimals=9)
 
 def to_ang_freq(unit, values):
     """converts values from standard to angular frequency representation"""

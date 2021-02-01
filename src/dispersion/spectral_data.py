@@ -12,7 +12,7 @@ SpectralData
     abstract base class
 Constant: SpectralData
     for values that are independent of the spectrum
-Interplation: SpectralData
+Interpolation: SpectralData
     for tabulated data values
 Model: SpectralData
     abstract base class for values generated from a particular model
@@ -38,6 +38,8 @@ Drude: Model
     implements the Drude model for complex permittivity
 DrudeLorentz: Model
     implements the Drude-Lorentz model for complex permittivity
+TaucLorentz: Model
+    implements the Tauc-Lorentz model for complex permittivity
 
 Notes
 -----
@@ -148,11 +150,11 @@ class Extrapolation(SpectralData):
                 raise ValueError("extrapolation spectrum may contain at most" +
                                  "2 values not {}".format(extrap_values.size))
             for extrap_val in extrap_values:
-                new_range = self.validate_extrap_val(extrap_val,new_range)
+                new_range = self.validate_extrap_val(extrap_val, new_range)
         else:
             # upper or lower
             extrap_val = extended_spectrum.values
-            new_range = self.validate_extrap_val(extrap_val,new_range)
+            new_range = self.validate_extrap_val(extrap_val, new_range)
 
         return Spectrum(new_range,
                         spectrum_type= base_spectrum.spectrum_type,
@@ -292,10 +294,11 @@ class Model(SpectralData):
         self.valid_range.contains(spectrum)
         new_spectrum = spectrum.convert_to(self.spectrum_type,
                                            self.unit)
-        if isinstance(spectrum, (list, tuple, np.ndarray)):
+        if isinstance(spectrum.values, (list, tuple, np.ndarray)):
             ones = np.ones(new_spectrum.shape)
         else:
             ones = 1.0
+
         return ones, new_spectrum
 
 class Sellmeier(Model):
@@ -611,13 +614,89 @@ class DrudeLorentz(Model):
         loss = self.model_parameters[3] # loss in eV
         return ones +  np.conj(pol_str*omega_p**2/((w_res**2-np.power(energies, 2))+1j*loss*energies))
 
+class TaucLorentz(Model):
+    '''
+    requires energy input in eV
+    returns real and imaginary parts of permittivity
+    '''
+    def __init__(self, model_parameters, valid_range,
+                 spectrum_type='wavelength', unit='m'):
+        super(TaucLorentz, self).__init__(model_parameters, valid_range,
+                                           spectrum_type=spectrum_type,
+                                           unit=unit)
+        self.required_spectrum_type = 'energy'
+        self.required_unit = 'ev'
+        self.output = 'eps'
+        self.validate_spectrum_type()
+
+    def evaluate(self, spectrum):
+        """returns the value of the spectral data for the given spectrum"""
+        [ones, energies] = self.preprocess(spectrum)
+        A = self.model_parameters[0] # oscillator strength
+        E0 = self.model_parameters[1] # pole energy
+        C = self.model_parameters[2] # pole broadening
+        Eg = self.model_parameters[3] # optical bandgap energy
+        eps_inf = self.model_parameters[4] # high frequency limit of the real part of permittivity
+        eps_imag = self._calc_eps_imag(ones, energies, A, E0, C, Eg)
+        eps_real = self._calc_eps_real(energies, A, E0, C, Eg, eps_inf)
+        eps = eps_real + 1j*eps_imag
+        return eps
+
+    def _calc_eps_imag(self, ones, energies, A, E0, C, Eg):
+        eps_imag = ones
+        E = energies[energies>=Eg]
+        eps_imag[energies>=Eg] = ( (1./E) *A*E0*C*(E-Eg)**2 /
+                                   ((E**2-E0**2)**2+C**2*E**2))
+        eps_imag[energies<Eg] = 0.0
+        return eps_imag
+
+    def _calc_eps_real(self, energies, A, E0, C, Eg, eps_inf):
+        E = energies
+        alpha_ln = ((Eg**2-E0**2)*E**2 +
+                    Eg**2*C**2 -
+                    E0**2*(E0**2+3*Eg**2))
+        alpha_atan = (E**2-E0**2)*(E0**2+Eg**2) + Eg**2*C**2
+        alpha = np.sqrt(4*E0**2-C**2)
+        gamma = np.sqrt(E0**2 -0.5*C**2)
+        zeta4 = (E**2-gamma**2)**2 + 0.25*alpha**2*C**2
+
+        part1 = (0.5*(A*C*alpha_ln/(np.pi*zeta4*alpha*E0)) *
+                 np.log( (E0**2+Eg**2+alpha*Eg)/(E0**2+Eg**2-alpha*Eg)))
+
+        part2 = ((-1*A*alpha_atan/(np.pi*zeta4*E0)) *
+                 (np.pi - np.arctan( (2*Eg+alpha)/C) +
+                  np.arctan( (-2*Eg+alpha)/C)))
+
+        # From original paper, seems to be wrong
+        # part3 = ((2.*A*E0*C/(np.pi*zeta4)) *
+        #          (Eg*(E**2-gamma**2)*
+        #           (np.pi+2*np.arctan2((gamma**2-Eg**2),(alpha*C)))))
+
+        part3_1 = (4.*A*E0/(np.pi*zeta4*alpha))
+        part3_2 = Eg*(E**2-gamma**2)
+        part3_3 = ( np.arctan2(alpha+2*Eg,C) +
+                    np.arctan2(alpha-2*Eg,C))
+        part3 = part3_1 * part3_2 * part3_3
+
+        part4 = ((-A*E0*C/(np.pi*zeta4))*
+                 ((E**2+Eg**2)/E) *
+                 np.log( np.abs(E-Eg)/(E+Eg)))
+
+        part5 = ((2.*A*E0*C*Eg/(np.pi*zeta4)) *
+                 np.log( (np.abs(E-Eg)*(E+Eg))/
+                         np.sqrt((E0**2-Eg**2)**2+Eg**2*C**2)))
+
+        eps_real = eps_inf + part1 + part2 + part3 + part4 +part5
+        return eps_real
+
+
 
 class Fano(Model):
 
     '''
     this model can be applied to scattering cross sections
     requires energy input in eV
-    returns real and imaginary parts of permittivity
+    returns real and imaginary parts of scattering cross section
     '''
     def input_output(self):
         """defines the required inputs and the output spectrum type"""
